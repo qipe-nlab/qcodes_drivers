@@ -34,6 +34,7 @@ class HVI_Trigger(Instrument):
     def __init__(self, name: str, chassis: int, **kwargs):
         super().__init__(name, **kwargs)
         self.hvi = keysightSD1.SD_HVI()
+        self.chassis = chassis
 
         # open HVI file
         hvi_name = 'InternalTrigger_%d_%d.HVI' % (n_awg, n_dig)
@@ -42,7 +43,8 @@ class HVI_Trigger(Instrument):
 
         # assign units, run twice to ignore errors before units are set
         for m in range(2):
-            for n, name in module_names:
+            for n, name in enumerate(module_names):
+                if name == '': break
                 r = self.hvi.assignHardwareWithUserNameAndSlot(name, self.chassis, n + 1)
                 # only check for errors after second run
                 if m > 0:
