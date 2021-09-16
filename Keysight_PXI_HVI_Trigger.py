@@ -80,55 +80,68 @@ class HVI_Trigger(Instrument):
         )
 
     def set_trigger_period(self, trigger_period: int):
-        if trigger_period != self.trigger_period.cache():
-            self.recompile = True
+        if trigger_period != self.trigger_period.cache():  # if the value changed
+            if self.output.get():  # if the output is ON, recompile and restart
+                self.trigger_period.cache.set(trigger_period)
+                self.compile_hvi()
+                r = self.hvi.start()
+                result_parser(r, 'start()')
+            else:  # if the output is OFF, recompile later
+                self.recompile = True
 
     def set_digitizer_delay(self, digitizer_delay: int):
-        if digitizer_delay != self.digitizer_delay.cache():
-            self.recompile = True
+        if digitizer_delay != self.digitizer_delay.cache():  # if the value changed
+            if self.output.get():  # if the output is ON, recompile and restart
+                self.trigger_period.cache.set(digitizer_delay)
+                self.compile_hvi()
+                r = self.hvi.start()
+                result_parser(r, 'start()')
+            else:  # if the output is OFF, recompile later
+                self.recompile = True
 
     def set_output(self, output: bool):
-        if not output:
+        if output:
+            if self.recompile:
+                self.compile_hvi()
+            r = self.hvi.start()
+            result_parser(r, 'start()')
+        else:
             self.hvi.stop()
-        elif not self.recompile:
-            r = self.hvi.start()
-            result_parser(r, 'start()')
-        else:  # recompile HVI file
-            self.recompile = False
 
-            wait = (self.trigger_period.get() - 460) // 10  # include 460 ns delay in HVI
-            digi_wait = self.digitizer_delay.get() // 10
+    def compile_hvi(self):
+        """HVI file needs to be re-compiled after trigger_period or digitizer_delay is changed"""
+        self.recompile = False
 
-            # special case if only one module: add 240 ns extra delay
-            if (n_awg + n_dig) == 1:
-                wait += 24
+        wait = (self.trigger_period.get() - 460) // 10  # include 460 ns delay in HVI
+        digi_wait = self.digitizer_delay.get() // 10
 
-            r = self.hvi.writeIntegerConstantWithUserName('Module 0', 'Wait time', wait)
-            result_parser(r, f"writeIntegerConstantWithUserName('Module 0', 'Wait time', {wait})")
+        # special case if only one module: add 240 ns extra delay
+        if (n_awg + n_dig) == 1:
+            wait += 24
 
-            for n in range(n_dig):
-                r = self.hvi.writeIntegerConstantWithUserName(
-                    'DAQ %d' % n, 'Digi wait', digi_wait)
-                result_parser(r, f"writeIntegerConstantWithUserName({'DAQ %d' % n}, 'Digi wait', {digi_wait})")
+        r = self.hvi.writeIntegerConstantWithUserName('Module 0', 'Wait time', wait)
+        result_parser(r, f"writeIntegerConstantWithUserName('Module 0', 'Wait time', {wait})")
 
-            # need to recompile after setting wait time, not sure why
-            r = self.hvi.compile()
-            result_parser(r, 'compile()')
+        for n in range(n_dig):
+            r = self.hvi.writeIntegerConstantWithUserName(
+                'DAQ %d' % n, 'Digi wait', digi_wait)
+            result_parser(r, f"writeIntegerConstantWithUserName({'DAQ %d' % n}, 'Digi wait', {digi_wait})")
 
-            # try to load a few times, sometimes hangs on first try
-            n_try = 5
-            while True:
-                try:
-                    r = self.hvi.load()
-                    result_parser(r, 'load()')
-                    break
-                except Exception:
-                    n_try -= 1
-                    if n_try <= 0:
-                        raise
+        # need to recompile after setting wait time, not sure why
+        r = self.hvi.compile()
+        result_parser(r, 'compile()')
 
-            r = self.hvi.start()
-            result_parser(r, 'start()')
+        # try to load a few times, sometimes hangs on first try
+        n_try = 5
+        while True:
+            try:
+                r = self.hvi.load()
+                result_parser(r, 'load()')
+                break
+            except Exception:
+                n_try -= 1
+                if n_try <= 0:
+                    raise
 
     def close(self):
         self.hvi.stop()
