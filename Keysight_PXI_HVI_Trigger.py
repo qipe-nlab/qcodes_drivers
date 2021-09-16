@@ -20,6 +20,9 @@ module_names = [
     'DAQ 0',
 ]
 
+assert module_names[0] == ''
+assert module_names[1] == 'Module 0'
+
 # number of AWGs
 n_awg = sum(1 for name in module_names if name[:6] == 'Module')
 assert n_awg >= 1
@@ -58,6 +61,7 @@ class HVI_Trigger(Instrument):
             label='trigger period',
             unit='ns',
             vals=Multiples(10, min_value=800),
+            initial_cache_value=100000,
             docstring='in steps of 10 ns',
             set_cmd=self.set_trigger_period,
         )
@@ -67,6 +71,7 @@ class HVI_Trigger(Instrument):
             label='digitizer delay',
             unit='ns',
             vals=Multiples(10, min_value=0),
+            initial_cache_value=0,
             docstring='extra delay before triggering digitizers, in steps of 10 ns',
             set_cmd=self.set_digitizer_delay,
         )
@@ -75,6 +80,7 @@ class HVI_Trigger(Instrument):
             instrument=self,
             label='output',
             vals=Bool(),
+            initial_cache_value=False,
             docstring='use software/HVI trigger on the AWG/digitizer channels',
             set_cmd=self.set_output,
         )
