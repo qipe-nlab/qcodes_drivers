@@ -47,7 +47,7 @@ class HVI_Trigger(Instrument):
         # assign units, run twice to ignore errors before units are set
         for m in range(2):
             for n, name in enumerate(module_names):
-                if name == '': break
+                if name == '': continue
                 r = self.hvi.assignHardwareWithUserNameAndSlot(name, self.chassis, n + 1)
                 # only check for errors after second run
                 if m > 0:
