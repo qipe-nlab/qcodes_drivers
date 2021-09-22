@@ -2,12 +2,7 @@ import warnings
 import os
 from typing import List, Union, Callable, Any
 from qcodes.instrument.base import Instrument
-
-try:
-    import keysightSD1
-except ImportError:
-    raise ImportError('to use the Keysight SD drivers install the keysightSD1 module '
-                      '(http://www.keysight.com/main/software.jspx?ckey=2784055)')
+from . import keysightSD1
 
 # check whether SD1 version 2.x or 3.x
 is_sd1_3x = 'SD_SandBoxRegister' in dir(keysightSD1)
