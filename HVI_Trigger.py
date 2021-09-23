@@ -87,7 +87,7 @@ class HVI_Trigger(Instrument):
 
     def set_trigger_period(self, trigger_period: int):
         if trigger_period != self.trigger_period.cache():  # if the value changed
-            if self.output.get():  # if the output is ON, recompile and restart
+            if self.output():  # if the output is ON, recompile and restart
                 self.trigger_period.cache.set(trigger_period)
                 self.compile_hvi()
                 r = self.hvi.start()
@@ -97,7 +97,7 @@ class HVI_Trigger(Instrument):
 
     def set_digitizer_delay(self, digitizer_delay: int):
         if digitizer_delay != self.digitizer_delay.cache():  # if the value changed
-            if self.output.get():  # if the output is ON, recompile and restart
+            if self.output():  # if the output is ON, recompile and restart
                 self.trigger_period.cache.set(digitizer_delay)
                 self.compile_hvi()
                 r = self.hvi.start()
@@ -118,8 +118,8 @@ class HVI_Trigger(Instrument):
         """HVI file needs to be re-compiled after trigger_period or digitizer_delay is changed"""
         self.recompile = False
 
-        wait = (self.trigger_period.get() - 460) // 10  # include 460 ns delay in HVI
-        digi_wait = self.digitizer_delay.get() // 10
+        wait = (self.trigger_period() - 460) // 10  # include 460 ns delay in HVI
+        digi_wait = self.digitizer_delay() // 10
 
         # special case if only one module: add 240 ns extra delay
         if (n_awg + n_dig) == 1:
@@ -150,6 +150,7 @@ class HVI_Trigger(Instrument):
                     raise
 
     def close(self):
-        self.hvi.stop()
+        self.output(False)
         self.hvi.close()
+        self.recompile = True
         super().close()
