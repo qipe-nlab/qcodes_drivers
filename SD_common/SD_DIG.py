@@ -23,7 +23,6 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.half_range_hz = Parameter(
             name='half_range_hz',
             instrument=self,
-            label='half range (high impedance)',
             unit='V',
             vals=Enum(*self.parent.half_ranges_hz),
             initial_cache_value=self.parent.half_ranges_hz[-1],  # default to max range
@@ -32,7 +31,6 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.half_range_50 = Parameter(
             name='half_range_50',
             instrument=self,
-            label='half range (50 ohm)',
             unit='V',
             vals=Enum(*self.parent.half_ranges_50),
             initial_cache_value=self.parent.half_ranges_50[-1],  # default to max range
@@ -41,7 +39,6 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.high_impedance = Parameter(
             name='high_impedance',
             instrument=self,
-            label='high impedance',
             vals=Bool(),
             initial_cache_value=True,
             docstring='If False, use 50 Ohm',
@@ -49,7 +46,6 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.ac_coupling = Parameter(
             name='ac_coupling',
             instrument=self,
-            label='ac coupling',
             vals=Bool(),
             initial_cache_value=False,
             docstring='If False, use DC coupling',
@@ -60,7 +56,6 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.sampling_interval = Parameter(
             name='sampling_interval',
             instrument=self,
-            label='sampling interval',
             unit='ns',
             vals=Multiples(self.parent.min_sampling_interval, min_value=self.parent.min_sampling_interval),
             initial_value=self.parent.min_sampling_interval,
@@ -71,7 +66,6 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.analog_trigger_edge = Parameter(
             name='analog_trigger_edge',
             instrument=self,
-            label='analog trigger edge',
             vals=Enum('rising', 'falling', 'both'),
             initial_cache_value='rising',
             docstring="'rising', 'falling', or 'both'",
@@ -79,7 +73,6 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.analog_trigger_threshold = Parameter(
             name='analog_trigger_threshold',
             instrument=self,
-            label='analog trigger threshold',
             unit='V',
             initial_cache_value=1,
             set_cmd=self.set_analog_trigger_threshold)
@@ -89,14 +82,12 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.points_per_cycle = Parameter(
             name='points_per_cycle',
             instrument=self,
-            label='points per cycle',
             vals=Ints(min_value=1),
             initial_cache_value=100,
             set_cmd=self.set_points_per_cycle)
         self.cycles = Parameter(
             name='cycles',
             instrument=self,
-            label='cycles',
             vals=Ints(min_value=1),
             initial_cache_value=1,
             docstring='number of triggered acquisition cycles',
@@ -104,7 +95,6 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.delay = Parameter(
             name='delay',
             instrument=self,
-            label='delay',
             vals=Ints(),
             initial_cache_value=0,
             docstring='delay (or advance if negative) the acquisition, in units of sampling intervals',
@@ -112,7 +102,6 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.trigger_mode = Parameter(
             name='trigger_mode',
             instrument=self,
-            label='trigger mode',
             vals=Enum('auto', 'software/hvi', 'external digital', 'external analog'),
             initial_cache_value='auto',
             docstring="'auto', 'software/hvi', 'external digital', or 'external analog'",
@@ -123,7 +112,6 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.digital_trigger_source = Parameter(
             name='digital_trigger_source',
             instrument=self,
-            label='digital trigger source',
             vals=Enum('external', 'pxi'),
             initial_cache_value='external',
             docstring="'external' or 'pxi'",
@@ -131,7 +119,6 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.pxi_trigger_number = Parameter(
             name='pxi_trigger_number',
             insturment=self,
-            label='pxi trigger number',
             vals=Ints(0, self.parent.n_triggers - 1),
             initial_cache_value=0,
             docstring=f'0, 1, ..., {self.parent.n_triggers - 1}',
@@ -139,7 +126,6 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.digital_trigger_behavior = Parameter(
             name='digital_trigger_behavior',
             instrument=self,
-            label='digital trigger behavior',
             vals=Enum('high', 'low', 'rise', 'fall'),
             initial_cache_value='rise',
             docstring="'high', 'low', 'rise', or 'fall'",
@@ -147,7 +133,6 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.digital_trigger_sync = Parameter(
             name='digital_trigger_sync',
             instrument=self,
-            label='digital trigger sync',
             vals=Enum('none', 'clk10'),
             initial_cache_value='none',
             docstring="'none': 100 MHz internal clock, 'clk10': 10 MHz chassis clock",
@@ -158,7 +143,6 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.analog_trigger_source = Parameter(
             name='analog_trigger_source',
             instrument=self,
-            label='analog trigger source',
             vals=Ints(1, self.parent.n_channels),
             initial_value=1,
             docstring='channel number to use as analog trigger source',
@@ -168,7 +152,6 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.timeout = Parameter(
             name='timeout',
             instrument=self,
-            label='timeout',
             unit='ms',
             vals=Ints(min_value=1),
             initial_cache_value=10000,
@@ -341,7 +324,6 @@ class SD_DIG(SD_Module):
         self.trigger_port_direction = Parameter(
             name='trigger_port_direction',
             instrument=self,
-            label='trigger port direction',
             vals=Enum('in', 'out'),
             initial_value='in',
             docstring="'in' or 'out'",
@@ -351,7 +333,6 @@ class SD_DIG(SD_Module):
         self.trigger_output = Parameter(
             name='trigger_output',
             instrument=self,
-            label='trigger output',
             vals=Bool(),
             initial_value=False,
             docstring="trigger port direction should be 'out'",
@@ -361,7 +342,6 @@ class SD_DIG(SD_Module):
         self.trigger_input = Parameter(
             name='trigger_input',
             instrument=self,
-            label='trigger input',
             vals=Bool(),
             docstring="read only, trigger port direction should be 'in'",
             get_cmd=self.get_trigger_input,
