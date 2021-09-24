@@ -118,7 +118,7 @@ class SD_DIG_CHANNEL(InstrumentChannel):
             set_cmd=self.set_digital_trigger_source)
         self.pxi_trigger_number = Parameter(
             name='pxi_trigger_number',
-            insturment=self,
+            instrument=self,
             vals=Ints(0, self.parent.n_triggers - 1),
             initial_cache_value=0,
             docstring=f'0, 1, ..., {self.parent.n_triggers - 1}',
@@ -157,20 +157,16 @@ class SD_DIG_CHANNEL(InstrumentChannel):
             initial_cache_value=10000,
             set_cmd=None)
 
-        self.add_function(
-            name='read',
+        self.add_function('read',
             call_cmd=self.read,
             docstring='read the acquired data, blocking until the configured amount of data is acquired or when the configured timeout elapses; returns: np.ndarray, dtype=np.int16, shape=(cycles, points_per_cycle)')
-        self.add_function(
-            name='start',
+        self.add_function('start',
             call_cmd=self.start,
             docstring='start receiving triggers and acquiring data; the start time is NOT synchronized across channels, for that use start_multiple()')
-        self.add_function(
-            name='stop',
+        self.add_function('stop',
             call_cmd=self.stop,
             docstring='stop acquiring data')
-        self.add_function(
-            name='flush',
+        self.add_function('flush',
             call_cmd=self.flush,
             docstring='flush acquisition buffer and reset acquisition counter')
 
@@ -347,11 +343,10 @@ class SD_DIG(SD_Module):
             get_cmd=self.get_trigger_input,
             set_cmd=False)
 
-        self.add_function(
-            name='start_multiple',
+        self.add_function('start_multiple',
             call_cmd=self.start_multiple,
             args=(SequenceValidator(Bool(), length=self.n_channels),),
-            docstring='start receiving triggers and acquiring data; arg: list of booleans, which channels to start')
+            docstring='start receiving triggers and acquiring data; arg = list of booleans, which channels to start')
 
     def set_trigger_port_direction(self, value: str):
         direction = {'in': 1, 'out': 0}[value]
