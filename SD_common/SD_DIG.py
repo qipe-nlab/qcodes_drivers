@@ -119,7 +119,7 @@ class SD_DIG_CHANNEL(InstrumentChannel):
             set_cmd=self.set_trigger_mode)
         self.write_DAQconfig()  # configure the digitizer with the initial values
 
-        # for DAQdigitalTriggerConfig
+        # for DAQtriggerExternalConfig
         self.digital_trigger_source = Parameter(
             name='digital_trigger_source',
             instrument=self,
@@ -144,7 +144,15 @@ class SD_DIG_CHANNEL(InstrumentChannel):
             initial_cache_value='rise',
             docstring="'high', 'low', 'rise', or 'fall'",
             set_cmd=self.set_digital_trigger_behavior)
-        self.write_DAQdigitalTriggerConfig()
+        self.digital_trigger_sync = Parameter(
+            name='digital_trigger_sync',
+            instrument=self,
+            label='digital trigger sync',
+            vals=Enum('none', 'clk10'),
+            initial_cache_value='none',
+            docstring="'none': 100 MHz internal clock, 'clk10': 10 MHz chassis clock",
+            set_cmd=self.set_digital_trigger_sync)
+        self.write_DAQtriggerExternalConfig()  # configure the digitizer with the initial values
 
         # for DAQanalogTriggerConfig
         self.analog_trigger_source = Parameter(
@@ -249,23 +257,28 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.trigger_mode.cache.set(value)
         self.write_DAQconfig()
 
-    def write_DAQdigitalTriggerConfig(self):
+    def write_DAQtriggerExternalConfig(self):
         source = {'external': 0, 'pxi': 4000 + self.pxi_trigger_number()}[self.digital_trigger_source()]
         behavior = {'high': 1, 'low': 2, 'rise': 3, 'fall': 4}[self.digital_trigger_behavior()]
-        r = self.parent.SD_AIN.DAQdigitalTriggerConfig(self.channel, source, behavior)
-        result_parser(r, f'DAQdigitalTriggerConfig({self.channel}, {source}, {behavior})')
+        sync = {'none': 0, 'clk10': 1}[self.digital_trigger_sync()]
+        r = self.parent.SD_AIN.DAQtriggerExternalConfig(self.channel, source, behavior, sync)
+        result_parser(r, f'DAQtriggerExternalConfig({self.channel}, {source}, {behavior}, {sync})')
 
     def set_digital_trigger_source(self, value: str):
         self.digital_trigger_source.cache.set(value)
-        self.write_DAQdigitalTriggerConfig()
+        self.write_DAQtriggerExternalConfig()
 
     def set_pxi_trigger_number(self, value: int):
         self.pxi_trigger_number.cache.set(value)
-        self.write_DAQdigitalTriggerConfig()
+        self.write_DAQtriggerExternalConfig()
 
     def set_digital_trigger_behavior(self, value: str):
         self.digital_trigger_behavior.cache.set(value)
-        self.write_DAQdigitalTriggerConfig()
+        self.write_DAQtriggerExternalConfig()
+
+    def set_digital_trigger_sync(self, value: str):
+        self.digital_trigger_sync.cache.set(value)
+        self.write_DAQtriggerExternalConfig()
 
     def set_analog_trigger_source(self, source_channel: int):
         r = self.parent.SD_AIN.DAQanalogTriggerConfig(self.channel, source_channel)
