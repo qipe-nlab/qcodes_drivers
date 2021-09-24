@@ -297,7 +297,7 @@ class SD_DIG(SD_Module):
     def __init__(self, name: str, chassis: int, slot: int, channels: int, triggers: int, min_sampling_interval: int, half_ranges_hz: Sequence[float], half_ranges_50: Sequence[float], **kwargs):
         """
         channels: number of channels in the module
-        triggers: number of trigger channels in the module
+        triggers: number of PXI trigger lines
         min_sampling_interval: minimum sampling interval in ns
         half_ranges_hz: options for input half-range (V_pp/2) in high-impedance mode
         half_ranges_50: options for input half-range (V_pp/2) in 50-ohm mode
