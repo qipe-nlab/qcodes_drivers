@@ -13,6 +13,7 @@ from .SD_Module import SD_Module, result_parser
 
 
 class SD_DIG_CHANNEL(InstrumentChannel):
+    parent: SD_DIG
 
     def __init__(self, parent: SD_DIG, name: str, **kwargs):
         super().__init__(parent, name, **kwargs)
@@ -127,6 +128,14 @@ class SD_DIG_CHANNEL(InstrumentChannel):
             initial_cache_value='external',
             docstring="'external' or 'pxi'",
             set_cmd=self.set_digital_trigger_source)
+        self.pxi_trigger_number = Parameter(
+            name='pxi_trigger_number',
+            insturment=self,
+            label='pxi trigger number',
+            vals=Ints(0, self.parent.n_triggers - 1),
+            initial_cache_value=0,
+            docstring=f'0, 1, ..., {self.parent.n_triggers - 1}',
+            set_cmd=self.set_pxi_trigger_number)
         self.digital_trigger_behavior = Parameter(
             name='digital_trigger_behavior',
             instrument=self,
@@ -241,13 +250,17 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.write_DAQconfig()
 
     def write_DAQdigitalTriggerConfig(self):
-        source = {'external': 0, 'pxi': 1}[self.digital_trigger_source()]
+        source = {'external': 0, 'pxi': 4000 + self.pxi_trigger_number()}[self.digital_trigger_source()]
         behavior = {'high': 1, 'low': 2, 'rise': 3, 'fall': 4}[self.digital_trigger_behavior()]
         r = self.parent.SD_AIN.DAQdigitalTriggerConfig(self.channel, source, behavior)
         result_parser(r, f'DAQdigitalTriggerConfig({self.channel}, {source}, {behavior})')
 
     def set_digital_trigger_source(self, value: str):
         self.digital_trigger_source.cache.set(value)
+        self.write_DAQdigitalTriggerConfig()
+
+    def set_pxi_trigger_number(self, value: int):
+        self.pxi_trigger_number.cache.set(value)
         self.write_DAQdigitalTriggerConfig()
 
     def set_digital_trigger_behavior(self, value: str):
