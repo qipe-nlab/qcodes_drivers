@@ -130,13 +130,13 @@ class SD_DIG_CHANNEL(InstrumentChannel):
             initial_cache_value='rise',
             docstring="'high', 'low', 'rise', or 'fall'",
             set_cmd=self.set_digital_trigger_behavior)
-        self.digital_trigger_sync = Parameter(
-            name='digital_trigger_sync',
+        self.digital_trigger_sync_clk10 = Parameter(
+            name='digital_trigger_sync_clk10',
             instrument=self,
-            vals=Enum('none', 'clk10'),
-            initial_cache_value='none',
-            docstring="'none': 100 MHz internal clock, 'clk10': 10 MHz chassis clock",
-            set_cmd=self.set_digital_trigger_sync)
+            vals=Bool(),
+            initial_cache_value=False,
+            docstring="sync to 10 MHz chassis clock",
+            set_cmd=self.set_digital_trigger_sync_clk10)
         self.write_DAQtriggerExternalConfig()  # configure the digitizer with the initial values
 
         # for DAQanalogTriggerConfig
@@ -239,7 +239,7 @@ class SD_DIG_CHANNEL(InstrumentChannel):
     def write_DAQtriggerExternalConfig(self):
         source = {'external': 0, 'pxi': 4000 + self.pxi_trigger_number()}[self.digital_trigger_source()]
         behavior = {'high': 1, 'low': 2, 'rise': 3, 'fall': 4}[self.digital_trigger_behavior()]
-        sync = {'none': 0, 'clk10': 1}[self.digital_trigger_sync()]
+        sync = {False: 0, True: 1}[self.digital_trigger_sync_clk10()]
         r = self.parent.SD_AIN.DAQtriggerExternalConfig(self.channel, source, behavior, sync)
         result_parser(r, f'DAQtriggerExternalConfig({self.channel}, {source}, {behavior}, {sync})')
 
@@ -255,8 +255,8 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.digital_trigger_behavior.cache.set(value)
         self.write_DAQtriggerExternalConfig()
 
-    def set_digital_trigger_sync(self, value: str):
-        self.digital_trigger_sync.cache.set(value)
+    def set_digital_trigger_sync_clk10(self, value: bool):
+        self.digital_trigger_sync_clk10.cache.set(value)
         self.write_DAQtriggerExternalConfig()
 
     def set_analog_trigger_source(self, source_channel: int):
