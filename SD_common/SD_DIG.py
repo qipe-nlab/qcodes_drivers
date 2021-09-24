@@ -6,7 +6,7 @@ from typing import Sequence
 import numpy as np
 from qcodes.instrument.channel import ChannelList, InstrumentChannel
 from qcodes.instrument.parameter import Parameter
-from qcodes.utils.validators import Bool, Enum, Ints, Multiples
+from qcodes.utils.validators import Bool, Enum, Ints, Multiples, Sequence as SequenceValidator
 
 from . import keysightSD1
 from .SD_Module import SD_Module, result_parser
@@ -157,17 +157,14 @@ class SD_DIG_CHANNEL(InstrumentChannel):
             initial_cache_value=10000,
             set_cmd=None)
 
-        # functions
         self.add_function(
             name='read',
             call_cmd=self.read,
-            docstring='''read the acquired data
-                blocks until the configured amount of data is acquired or when the configured timeout elapses
-                returns: np.ndarray, dtype=np.int16, shape=(cycles, points_per_cycle)''')
+            docstring='read the acquired data, blocking until the configured amount of data is acquired or when the configured timeout elapses; returns: np.ndarray, dtype=np.int16, shape=(cycles, points_per_cycle)')
         self.add_function(
             name='start',
             call_cmd=self.start,
-            docstring='start receiving triggers and acquiring data')
+            docstring='start receiving triggers and acquiring data; the start time is NOT synchronized across channels, for that use start_multiple()')
         self.add_function(
             name='stop',
             call_cmd=self.stop,
@@ -309,7 +306,7 @@ class SD_DIG(SD_Module):
         self.half_ranges_hz = half_ranges_hz
         self.half_ranges_50 = half_ranges_50
 
-        self.SD_AIN = self.SD_module
+        self.SD_AIN: keysightSD1.SD_AIN = self.SD_module
         channels = [SD_DIG_CHANNEL(parent=self, name=str(i+1)) for i in range(self.n_channels)]
         channel_list = ChannelList(parent=self, name='channel', chan_type=SD_DIG_CHANNEL, chan_list=channels)
         self.add_submodule('channel', channel_list)
@@ -344,6 +341,12 @@ class SD_DIG(SD_Module):
             get_cmd=self.get_trigger_input,
             set_cmd=False)
 
+        self.add_function(
+            name='start_multiple',
+            call_cmd=self.start_multiple,
+            args=(SequenceValidator(Bool(), length=self.n_channels),),
+            docstring='start receiving triggers and acquiring data; arg: list of booleans, which channels to start')
+
     def set_trigger_port_direction(self, value: str):
         direction = {'in': 1, 'out': 0}[value]
         r = self.SD_AIN.triggerIOconfig(direction)
@@ -358,3 +361,8 @@ class SD_DIG(SD_Module):
         r = self.SD_AIN.triggerIOread()
         result_parser(r, 'triggerIOread()')
         return {0: False, 1: True}[r]
+
+    def start_multiple(self, channel_mask: Sequence[bool]):
+        mask = sum(2**i for i in range(self.n_channels) if channel_mask[i])
+        r = self.SD_AIN.DAQstartMultiple(mask)
+        result_parser(r, f'DAQstartMultiple({mask})')
