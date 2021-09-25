@@ -1,21 +1,20 @@
-# -*- coding: utf-8 -*-
-import threading
+import logging
 import queue
 import sys
-from dataclasses import dataclass
-from typing import Dict, List, Union, Optional, TypeVar, Callable, Any
+import threading
 import time
-import logging
+from dataclasses import dataclass
 from functools import wraps
+from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
 
 import numpy as np
 
-from .SD_Module import keysightSD1, result_parser
-from .SD_AWG import SD_AWG
 from .memory_manager import MemoryManager
-
+from .SD_AWG import SD_AWG
+from .SD_Module import keysightSD1, result_parser
 
 F = TypeVar('F', bound=Callable[..., Any])
+
 
 def switchable(switch, enabled:bool) -> Callable[[F], F]:
     """
@@ -252,64 +251,25 @@ class SD_AWG_Async(SD_AWG):
     # disable synchronous method of parent class, when wave memory is managed by this class.
     #
     @switchable(asynchronous, enabled=False)
-    def load_waveform(self, waveform_object, waveform_number, verbose=False):
-        super().load_waveform(waveform_object, waveform_number, verbose)
+    def load_waveform(self, waveform_object, waveform_number):
+        super().load_waveform(waveform_object, waveform_number)
 
     @switchable(asynchronous, enabled=False)
-    def load_waveform_int16(self, waveform_type, data_raw, waveform_number, verbose=False):
-        super().load_waveform_int16(waveform_type, data_raw, waveform_number, verbose)
+    def reload_waveform(self, waveform_object, waveform_number):
+        super().reload_waveform(waveform_object, waveform_number)
 
     @switchable(asynchronous, enabled=False)
-    def reload_waveform(self, waveform_object, waveform_number, padding_mode=0, verbose=False):
-        super().reload_waveform(waveform_object, waveform_number, padding_mode, verbose)
-
-    @switchable(asynchronous, enabled=False)
-    def reload_waveform_int16(self, waveform_type, data_raw, waveform_number, padding_mode=0, verbose=False):
-        super().reload_waveform_int16(waveform_type, data_raw, waveform_number, padding_mode, verbose)
-
-    @switchable(asynchronous, enabled=False)
-    def flush_waveform(self, verbose=False):
-        super().flush_waveform(verbose)
-
-    @switchable(asynchronous, enabled=False)
-    def awg_from_file(self, awg_number, waveform_file, trigger_mode, start_delay, cycles, prescaler, padding_mode=0,
-                      verbose=False):
-        super().awg_from_file(awg_number, waveform_file, trigger_mode, start_delay, cycles, prescaler, padding_mode,
-                              verbose)
-
-    @switchable(asynchronous, enabled=False)
-    def awg_from_array(self, awg_number, trigger_mode, start_delay, cycles, prescaler, waveform_type, waveform_data_a,
-                       waveform_data_b=None, padding_mode=0, verbose=False):
-        super().awg_from_array(awg_number, trigger_mode, start_delay, cycles, prescaler, waveform_type, waveform_data_a,
-                       waveform_data_b, padding_mode, verbose)
+    def flush_waveform(self):
+        super().flush_waveform()
 
 
-    def awg_flush(self, awg_number):
-        super().awg_flush(awg_number)
+    def awg_flush(self, channel):
+        super().channel[channel-1].flush()
         if self._asynchronous:
-            self._release_waverefs_awg(awg_number)
+            self._release_waverefs_awg(channel)
 
 
-    def awg_queue_waveform(self, awg_number, waveform_ref, trigger_mode, start_delay, cycles, prescaler):
-        """
-        Enqueus the waveform.
-
-        Args:
-            awg_number (int): awg number (channel) where the waveform is queued
-            waveform_ref (Union[int, _WaveformReferenceInternal)]:
-                reference to a waveform
-            trigger_mode (int): trigger method to launch the waveform
-                Auto                        :   0
-                Software/HVI                :   1
-                Software/HVI (per cycle)    :   5
-                External trigger            :   2
-                External trigger (per cycle):   6
-            start_delay (int): defines the delay between trigger and wf launch
-                given in multiples of 10ns.
-            cycles (int): number of times the waveform is repeated once launched
-                zero = infinite repeats
-            prescaler (int): waveform prescaler value, to reduce eff. sampling rate
-        """
+    def queue_waveform(self, channel: int, waveform_ref: Union[int, _WaveformReferenceInternal], trigger: str, per_cycle: bool, delay: int, cycles: int):
         if self.asynchronous():
             if waveform_ref.awg_name != self.name:
                 raise Exception(f'Waveform not uploaded to this AWG ({self.name}). '
@@ -324,12 +284,12 @@ class SD_AWG_Async(SD_AWG):
                 self.log.info(f'Waited {duration*1000:5.1f} ms for upload of wave {waveform_ref.wave_number}')
 
             waveform_ref.enqueued()
-            self._enqueued_waverefs[awg_number].append(waveform_ref)
+            self._enqueued_waverefs[channel].append(waveform_ref)
             wave_number = waveform_ref.wave_number
         else:
             wave_number = waveform_ref
 
-        super().awg_queue_waveform(awg_number, wave_number, trigger_mode, start_delay, cycles, prescaler)
+        super().queue_waveform(channel, wave_number, trigger, per_cycle, delay, cycles)
 
 
     @switchable(asynchronous, enabled=True)
@@ -358,8 +318,8 @@ class SD_AWG_Async(SD_AWG):
         Returns:
             reference to the wave
         """
-        if len(wave) < 2000:
-            raise Exception(f'{len(wave)} is less than 2000 samples required for proper functioning of AWG')
+        # if len(wave) < 2000:
+        #     raise Exception(f'{len(wave)} is less than 2000 samples required for proper functioning of AWG')
 
         allocated_slot = self._memory_manager.allocate(len(wave))
         ref = _WaveformReferenceInternal(allocated_slot, self.name)
@@ -451,9 +411,8 @@ class SD_AWG_Async(SD_AWG):
         for slot in new_slots:
             start = time.perf_counter()
             if len(zeros) != slot.size or wave is None:
-                zeros = np.zeros(slot.size, np.float)
-                wave = keysightSD1.SD_Wave()
-                result_parser(wave.newFromArrayDouble(keysightSD1.SD_WaveformTypes.WAVE_ANALOG, zeros))
+                zeros = np.zeros(slot.size, np.float64)
+                wave = super().new_waveform(zeros)
             super().load_waveform(wave, slot.number)
             duration = time.perf_counter() - start
             total_duration += duration
@@ -481,8 +440,7 @@ class SD_AWG_Async(SD_AWG):
             try:
                 start = time.perf_counter()
 
-                wave = keysightSD1.SD_Wave()
-                result_parser(wave.newFromArrayDouble(keysightSD1.SD_WaveformTypes.WAVE_ANALOG, entry.wave))
+                wave = super().new_waveform(entry.wave)
                 super().reload_waveform(wave, wave_ref.wave_number)
 
                 duration = time.perf_counter() - start
