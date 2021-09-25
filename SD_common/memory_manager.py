@@ -1,7 +1,6 @@
-# -*- coding: utf-8 -*-
-from dataclasses import dataclass
-from typing import List, Dict
 import logging
+from dataclasses import dataclass
+from typing import Dict, List
 
 
 class MemoryManager:

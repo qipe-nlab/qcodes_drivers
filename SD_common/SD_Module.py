@@ -1,9 +1,8 @@
-from logging import raiseExceptions
-import warnings
-import os
-from typing import List, Union, Callable, Any
+from typing import Any, Callable
+
 from qcodes.instrument.base import Instrument
 from qcodes.instrument.parameter import Parameter
+
 from . import keysightSD1
 
 # check whether SD1 version 2.x or 3.x

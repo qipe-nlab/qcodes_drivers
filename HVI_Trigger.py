@@ -1,9 +1,10 @@
 import os
+
 from qcodes.instrument.base import Instrument
 from qcodes.instrument.parameter import Parameter
 from qcodes.utils.validators import Bool, Multiples
-from .SD_common.SD_Module import check_error, keysightSD1
 
+from .SD_common.SD_Module import check_error, keysightSD1
 
 # slot configuration
 # 'Module' means AWG, 'DAQ' means digitizer, '' means other
