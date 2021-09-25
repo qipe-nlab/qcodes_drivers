@@ -257,7 +257,7 @@ class SD_AWG(SD_Module):
 
         Args:
             waveform_object: the waveform object
-            waveform_number: waveform number to identify the waveform
+            waveform_id: waveform number to identify the waveform
                 in subsequent related function calls.
 
         Returns:

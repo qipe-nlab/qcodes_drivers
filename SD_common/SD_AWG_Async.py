@@ -5,14 +5,13 @@ import threading
 import time
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
+from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
 import numpy as np
 from qcodes.instrument.base import Instrument
 
 from .memory_manager import MemoryManager
 from .SD_AWG import SD_AWG
-from .SD_Module import keysightSD1, check_error
 
 F = TypeVar('F', bound=Callable[..., Any])
 
@@ -43,19 +42,19 @@ class WaveformReference:
     This is a reference to a waveform (being) uploaded to the AWG.
 
     Args:
-        wave_number: number refering to the wave in AWG memory
+        waveform_id: number refering to the wave in AWG memory
         awg_name: name of the awg the waveform is uploaded to
     """
-    def __init__(self, wave_number: int, awg_name: str):
-        self._wave_number = wave_number
+    def __init__(self, waveform_id: int, awg_name: str):
+        self._waveform_id = waveform_id
         self._awg_name = awg_name
 
     @property
-    def wave_number(self):
+    def waveform_id(self):
         """
         Number of the wave in AWG memory.
         """
-        return self._wave_number
+        return self._waveform_id
 
     @property
     def awg_name(self):
@@ -150,7 +149,7 @@ class _WaveformReferenceInternal(WaveformReference):
     def __del__(self):
         if not self._released:
             logging.warning(f'WaveformReference was not released '
-                            f'({self.awg_name}:{self.wave_number}). Automatic '
+                            f'({self.awg_name}:{self.waveform_id}). Automatic '
                             f'release in destructor.')
             self.release()
 
@@ -252,12 +251,12 @@ class SD_AWG_Async(SD_AWG):
     # disable synchronous method of parent class, when wave memory is managed by this class.
     #
     @switchable(asynchronous, enabled=False)
-    def load_waveform(self, waveform_object, waveform_number):
-        super().load_waveform(waveform_object, waveform_number)
+    def load_waveform(self, waveform_object, waveform_id):
+        super().load_waveform(waveform_object, waveform_id)
 
     @switchable(asynchronous, enabled=False)
-    def reload_waveform(self, waveform_object, waveform_number):
-        super().reload_waveform(waveform_object, waveform_number)
+    def reload_waveform(self, waveform_object, waveform_id):
+        super().reload_waveform(waveform_object, waveform_id)
 
     @switchable(asynchronous, enabled=False)
     def flush_waveform(self):
@@ -276,21 +275,21 @@ class SD_AWG_Async(SD_AWG):
                 raise Exception(f'Waveform not uploaded to this AWG ({self.name}). '
                                 f'It is uploaded to {waveform_ref.awg_name}')
 
-            self.log.debug(f'Enqueue {waveform_ref.wave_number}')
+            self.log.debug(f'Enqueue {waveform_ref.waveform_id}')
             if not waveform_ref.is_uploaded():
                 start = time.perf_counter()
-                self.log.debug(f'Waiting till wave {waveform_ref.wave_number} is uploaded')
+                self.log.debug(f'Waiting till wave {waveform_ref.waveform_id} is uploaded')
                 waveform_ref.wait_uploaded()
                 duration = time.perf_counter() - start
-                self.log.info(f'Waited {duration*1000:5.1f} ms for upload of wave {waveform_ref.wave_number}')
+                self.log.info(f'Waited {duration*1000:5.1f} ms for upload of wave {waveform_ref.waveform_id}')
 
             waveform_ref.enqueued()
             self._enqueued_waverefs[channel].append(waveform_ref)
-            wave_number = waveform_ref.wave_number
+            waveform_id = waveform_ref.waveform_id
         else:
-            wave_number = waveform_ref
+            waveform_id = waveform_ref
 
-        super().queue_waveform(channel, wave_number, trigger, per_cycle, delay, cycles)
+        super().queue_waveform(channel, waveform_id, trigger, per_cycle, delay, cycles)
 
 
     @switchable(asynchronous, enabled=True)
@@ -322,7 +321,7 @@ class SD_AWG_Async(SD_AWG):
 
         allocated_slot = self._memory_manager.allocate(len(wave))
         ref = _WaveformReferenceInternal(allocated_slot, self.name)
-        self.log.debug(f'upload: {ref.wave_number}')
+        self.log.debug(f'upload: {ref.waveform_id}')
 
         entry = SD_AWG_Async.UploadAction('upload', wave, ref)
         self._upload_queue.put(entry)
@@ -436,16 +435,16 @@ class SD_AWG_Async(SD_AWG):
                 continue
 
             wave_ref = entry.wave_ref
-            self.log.debug(f'Uploading {wave_ref.wave_number}')
+            self.log.debug(f'Uploading {wave_ref.waveform_id}')
             try:
                 start = time.perf_counter()
 
                 wave = super().new_waveform(entry.wave)
-                super().reload_waveform(wave, wave_ref.wave_number)
+                super().reload_waveform(wave, wave_ref.waveform_id)
 
                 duration = time.perf_counter() - start
                 speed = len(entry.wave)/duration
-                self.log.debug(f'Uploaded {wave_ref.wave_number} in {duration*1000:5.2f} ms ({speed/1e6:5.2f} MSa/s)')
+                self.log.debug(f'Uploaded {wave_ref.waveform_id} in {duration*1000:5.2f} ms ({speed/1e6:5.2f} MSa/s)')
             except:
                 ex = sys.exc_info()
                 msg = f'{ex[0].__name__}:{ex[1]}'
@@ -453,7 +452,7 @@ class SD_AWG_Async(SD_AWG):
                 max_value = np.max(entry.wave)
                 if min_value < -1.0 or max_value > 1.0:
                     msg += ': Voltage out of range'
-                self.log.error(f'Failure load waveform {wave_ref.wave_number}: {msg}' )
+                self.log.error(f'Failure load waveform {wave_ref.waveform_id}: {msg}' )
                 wave_ref._upload_error = msg
 
             # signal upload done, either successful or with error
