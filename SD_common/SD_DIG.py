@@ -6,7 +6,8 @@ from typing import Sequence
 import numpy as np
 from qcodes.instrument.channel import ChannelList, InstrumentChannel
 from qcodes.instrument.parameter import Parameter
-from qcodes.utils.validators import Bool, Enum, Ints, Multiples, Sequence as SequenceValidator
+from qcodes.utils.validators import Bool, Enum, Ints, Multiples
+from qcodes.utils.validators import Sequence as SequenceValidator
 
 from . import keysightSD1
 from .SD_Module import SD_Module, result_parser
@@ -325,23 +326,15 @@ class SD_DIG(SD_Module):
             docstring="'in' or 'out'",
             set_cmd=self.set_trigger_port_direction)
         
-        # for triggerIOwrite
-        self.trigger_output = Parameter(
-            name='trigger_output',
+        # for triggerIOread and triggerIOwrite
+        self.trigger_value = Parameter(
+            name='trigger_value',
             instrument=self,
             vals=Bool(),
             initial_value=False,
-            docstring="trigger port direction should be 'out'",
-            set_cmd=self.set_trigger_output)
-
-        # for triggerIOread
-        self.trigger_input = Parameter(
-            name='trigger_input',
-            instrument=self,
-            vals=Bool(),
-            docstring="read only, trigger port direction should be 'in'",
-            get_cmd=self.get_trigger_input,
-            set_cmd=False)
+            docstring="False: 0 V, True: 3.3 V (TTL)",
+            get_cmd=self.get_trigger_value,
+            set_cmd=self.set_trigger_value)
 
         self.add_function('start_multiple',
             call_cmd=self.start_multiple,
@@ -353,12 +346,12 @@ class SD_DIG(SD_Module):
         r = self.SD_AIN.triggerIOconfig(direction)
         result_parser(r, f'triggerIOconfig({direction})')
 
-    def set_trigger_output(self, value: bool):
+    def set_trigger_value(self, value: bool):
         output = {False: 0, True: 1}[value]
         r = self.SD_AIN.triggerIOwrite(output)
         result_parser(r, f'triggerIOwrite({output})')
 
-    def get_trigger_input(self) -> bool:
+    def get_trigger_value(self) -> bool:
         r = self.SD_AIN.triggerIOread()
         result_parser(r, 'triggerIOread()')
         return {0: False, 1: True}[r]
