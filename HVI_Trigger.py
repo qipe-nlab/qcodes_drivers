@@ -2,7 +2,7 @@ import os
 from qcodes.instrument.base import Instrument
 from qcodes.instrument.parameter import Parameter
 from qcodes.utils.validators import Bool, Multiples
-from .SD_common.SD_Module import result_parser, keysightSD1
+from .SD_common.SD_Module import check_error, keysightSD1
 
 
 # slot configuration
@@ -51,7 +51,7 @@ class HVI_Trigger(Instrument):
                 r = self.hvi.assignHardwareWithUserNameAndSlot(name, self.chassis, n + 1)
                 # only check for errors after second run
                 if m > 0:
-                    result_parser(r, f'assignHardwareWithUserNameAndSlot({name}, {self.chassis}, {n + 1})')
+                    check_error(r, f'assignHardwareWithUserNameAndSlot({name}, {self.chassis}, {n + 1})')
 
         self.recompile = True  # need to re-compile HVI file?
 
@@ -63,8 +63,7 @@ class HVI_Trigger(Instrument):
             vals=Multiples(10, min_value=800),
             initial_cache_value=100000,
             docstring='in steps of 10 ns',
-            set_cmd=self.set_trigger_period,
-        )
+            set_cmd=self.set_trigger_period)
         self.digitizer_delay = Parameter(
             name='digitizer_delay',
             instrument=self,
@@ -73,8 +72,7 @@ class HVI_Trigger(Instrument):
             vals=Multiples(10, min_value=0),
             initial_cache_value=0,
             docstring='extra delay before triggering digitizers, in steps of 10 ns',
-            set_cmd=self.set_digitizer_delay,
-        )
+            set_cmd=self.set_digitizer_delay)
         self.output = Parameter(
             name='output',
             instrument=self,
@@ -82,8 +80,7 @@ class HVI_Trigger(Instrument):
             vals=Bool(),
             initial_cache_value=False,
             docstring='use software/HVI trigger on the AWG/digitizer channels',
-            set_cmd=self.set_output,
-        )
+            set_cmd=self.set_output)
 
     def set_trigger_period(self, trigger_period: int):
         if trigger_period != self.trigger_period.cache():  # if the value changed
@@ -91,7 +88,7 @@ class HVI_Trigger(Instrument):
                 self.trigger_period.cache.set(trigger_period)
                 self.compile_hvi()
                 r = self.hvi.start()
-                result_parser(r, 'start()')
+                check_error(r, 'start()')
             else:  # if the output is OFF, recompile later
                 self.recompile = True
 
@@ -101,7 +98,7 @@ class HVI_Trigger(Instrument):
                 self.trigger_period.cache.set(digitizer_delay)
                 self.compile_hvi()
                 r = self.hvi.start()
-                result_parser(r, 'start()')
+                check_error(r, 'start()')
             else:  # if the output is OFF, recompile later
                 self.recompile = True
 
@@ -110,7 +107,7 @@ class HVI_Trigger(Instrument):
             if self.recompile:
                 self.compile_hvi()
             r = self.hvi.start()
-            result_parser(r, 'start()')
+            check_error(r, 'start()')
         else:
             self.hvi.stop()
 
@@ -126,23 +123,23 @@ class HVI_Trigger(Instrument):
             wait += 24
 
         r = self.hvi.writeIntegerConstantWithUserName('Module 0', 'Wait time', wait)
-        result_parser(r, f"writeIntegerConstantWithUserName('Module 0', 'Wait time', {wait})")
+        check_error(r, f"writeIntegerConstantWithUserName('Module 0', 'Wait time', {wait})")
 
         for n in range(n_dig):
             r = self.hvi.writeIntegerConstantWithUserName(
                 'DAQ %d' % n, 'Digi wait', digi_wait)
-            result_parser(r, f"writeIntegerConstantWithUserName({'DAQ %d' % n}, 'Digi wait', {digi_wait})")
+            check_error(r, f"writeIntegerConstantWithUserName({'DAQ %d' % n}, 'Digi wait', {digi_wait})")
 
         # need to recompile after setting wait time, not sure why
         r = self.hvi.compile()
-        result_parser(r, 'compile()')
+        check_error(r, 'compile()')
 
         # try to load a few times, sometimes hangs on first try
         n_try = 5
         while True:
             try:
                 r = self.hvi.load()
-                result_parser(r, 'load()')
+                check_error(r, 'load()')
                 break
             except Exception:
                 n_try -= 1

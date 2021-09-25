@@ -10,7 +10,7 @@ from qcodes.utils.validators import Bool, Enum, Ints, Multiples
 from qcodes.utils.validators import Sequence as SequenceValidator
 
 from . import keysightSD1
-from .SD_Module import SD_Module, result_parser
+from .SD_Module import SD_Module, check_error
 
 
 class SD_DIG_CHANNEL(InstrumentChannel):
@@ -120,9 +120,9 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.pxi_trigger_number = Parameter(
             name='pxi_trigger_number',
             instrument=self,
-            vals=Ints(0, self.parent.n_triggers - 1),
+            vals=Ints(0, self.parent.num_triggers - 1),
             initial_cache_value=0,
-            docstring=f'0, 1, ..., {self.parent.n_triggers - 1}',
+            docstring=f'0, 1, ..., {self.parent.num_triggers - 1}',
             set_cmd=self.set_pxi_trigger_number)
         self.digital_trigger_behavior = Parameter(
             name='digital_trigger_behavior',
@@ -144,7 +144,7 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         self.analog_trigger_source = Parameter(
             name='analog_trigger_source',
             instrument=self,
-            vals=Ints(1, self.parent.n_channels),
+            vals=Ints(1, self.parent.num_channels),
             initial_value=1,
             docstring='channel number to use as analog trigger source',
             set_cmd=self.set_analog_trigger_source)
@@ -176,7 +176,7 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         impedance = {True: 0, False: 1}[self.high_impedance()]
         coupling = {True: 1, False: 0}[self.ac_coupling()]
         r = self.parent.SD_AIN.channelInputConfig(self.channel, half_range, impedance, coupling)
-        result_parser(r, f'channelInputConfig({self.channel}, {half_range}, {impedance}, {coupling})')
+        check_error(r, f'channelInputConfig({self.channel}, {half_range}, {impedance}, {coupling})')
 
     def set_half_range_hz(self, value: float):
         self.half_range_hz.cache.set(value)
@@ -197,13 +197,13 @@ class SD_DIG_CHANNEL(InstrumentChannel):
     def set_sampling_interval(self, sampling_interval: int):
         prescaler = sampling_interval // self.parent.min_sampling_interval - 1
         r = self.parent.SD_AIN.channelPrescalerConfig(self.channel, prescaler)
-        result_parser(r, f'channelPrescalerConfig({self.channel}, {prescaler})')
+        check_error(r, f'channelPrescalerConfig({self.channel}, {prescaler})')
 
     def write_channelTriggerConfig(self):
         edge = {'rising': 1, 'falling': 2, 'both': 3}[self.analog_trigger_edge()]
         threshold = self.analog_trigger_threshold()
         r = self.parent.SD_AIN.channelTriggerConfig(self.channel, edge, threshold)
-        result_parser(r, f'channelTriggerConfig({self.channel}, {edge}, {threshold})')
+        check_error(r, f'channelTriggerConfig({self.channel}, {edge}, {threshold})')
 
     def set_analog_trigger_edge(self, value: int):
         self.analog_trigger_edge.cache.set(value)
@@ -219,7 +219,7 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         delay = self.delay()
         mode = {'auto': 0, 'software/hvi': 1, 'external digital': 2, 'external analog': 3}[self.trigger_mode()]
         r = self.parent.SD_AIN.DAQconfig(self.channel, points_per_cycle, cycles, delay, mode)
-        result_parser(r, f'DAQconfig({self.channel}, {points_per_cycle}, {cycles}, {delay}, {mode})')
+        check_error(r, f'DAQconfig({self.channel}, {points_per_cycle}, {cycles}, {delay}, {mode})')
 
     def set_points_per_cycle(self, value: int):
         self.points_per_cycle.cache.set(value)
@@ -242,7 +242,7 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         behavior = {'high': 1, 'low': 2, 'rise': 3, 'fall': 4}[self.digital_trigger_behavior()]
         sync = {False: 0, True: 1}[self.digital_trigger_sync_clk10()]
         r = self.parent.SD_AIN.DAQtriggerExternalConfig(self.channel, source, behavior, sync)
-        result_parser(r, f'DAQtriggerExternalConfig({self.channel}, {source}, {behavior}, {sync})')
+        check_error(r, f'DAQtriggerExternalConfig({self.channel}, {source}, {behavior}, {sync})')
 
     def set_digital_trigger_source(self, value: str):
         self.digital_trigger_source.cache.set(value)
@@ -262,7 +262,7 @@ class SD_DIG_CHANNEL(InstrumentChannel):
 
     def set_analog_trigger_source(self, source_channel: int):
         r = self.parent.SD_AIN.DAQanalogTriggerConfig(self.channel, source_channel)
-        result_parser(r, f'DAQanalogTriggerConfig({self.channel}, {source_channel})')
+        check_error(r, f'DAQanalogTriggerConfig({self.channel}, {source_channel})')
 
     def read(self) -> np.ndarray:
         timeout = self.timeout()
@@ -274,7 +274,7 @@ class SD_DIG_CHANNEL(InstrumentChannel):
 
         # directly call the DLL function so that we can use np.frombuffer for speed
         r = self.parent.SD_AIN._SD_Object__core_dll.SD_AIN_DAQread(handle, self.channel, data, num_points, timeout)
-        result_parser(r, f'DAQread({self.channel}, {num_points}, {timeout})')
+        check_error(r, f'DAQread({self.channel}, {num_points}, {timeout})')
         if r != num_points:
             raise Exception(f'timed out')
         array = np.frombuffer(data, dtype=np.int16, count=num_points)
@@ -282,20 +282,20 @@ class SD_DIG_CHANNEL(InstrumentChannel):
 
     def start(self):
         r = self.parent.SD_AIN.DAQstart(self.channel)
-        result_parser(r, f'DAQstart({self.channel})')
+        check_error(r, f'DAQstart({self.channel})')
 
     def stop(self):
         r = self.parent.SD_AIN.DAQstop(self.channel)
-        result_parser(r, f'DAQstop({self.channel})')
+        check_error(r, f'DAQstop({self.channel})')
 
     def flush(self):
         r = self.parent.SD_AIN.DAQflush(self.channel)
-        result_parser(r, f'DAQflush({self.channel})')
+        check_error(r, f'DAQflush({self.channel})')
 
 
 class SD_DIG(SD_Module):
 
-    def __init__(self, name: str, chassis: int, slot: int, channels: int, triggers: int, min_sampling_interval: int, half_ranges_hz: Sequence[float], half_ranges_50: Sequence[float], **kwargs):
+    def __init__(self, name: str, chassis: int, slot: int, num_channels: int, num_triggers: int, min_sampling_interval: int, half_ranges_hz: Sequence[float], half_ranges_50: Sequence[float], **kwargs):
         """
         channels: number of channels in the module
         triggers: number of PXI trigger lines
@@ -306,14 +306,14 @@ class SD_DIG(SD_Module):
         super().__init__(name, chassis, slot, module_class=keysightSD1.SD_AIN, **kwargs)
 
         # store card-specifics
-        self.n_channels = channels
-        self.n_triggers = triggers
+        self.num_channels = num_channels
+        self.num_triggers = num_triggers
         self.min_sampling_interval = min_sampling_interval
         self.half_ranges_hz = half_ranges_hz
         self.half_ranges_50 = half_ranges_50
 
         self.SD_AIN: keysightSD1.SD_AIN = self.SD_module
-        channels = [SD_DIG_CHANNEL(parent=self, name=str(i+1)) for i in range(self.n_channels)]
+        channels = [SD_DIG_CHANNEL(parent=self, name=str(i+1)) for i in range(self.num_channels)]
         channel_list = ChannelList(parent=self, name='channel', chan_type=SD_DIG_CHANNEL, chan_list=channels)
         self.add_submodule('channel', channel_list)
 
@@ -338,25 +338,25 @@ class SD_DIG(SD_Module):
 
         self.add_function('start_multiple',
             call_cmd=self.start_multiple,
-            args=(SequenceValidator(Bool(), length=self.n_channels),),
+            args=(SequenceValidator(Bool(), length=self.num_channels),),
             docstring='start receiving triggers and acquiring data; arg = list of booleans, which channels to start')
 
     def set_trigger_port_direction(self, value: str):
         direction = {'in': 1, 'out': 0}[value]
         r = self.SD_AIN.triggerIOconfig(direction)
-        result_parser(r, f'triggerIOconfig({direction})')
+        check_error(r, f'triggerIOconfig({direction})')
 
     def set_trigger_value(self, value: bool):
         output = {False: 0, True: 1}[value]
         r = self.SD_AIN.triggerIOwrite(output)
-        result_parser(r, f'triggerIOwrite({output})')
+        check_error(r, f'triggerIOwrite({output})')
 
     def get_trigger_value(self) -> bool:
         r = self.SD_AIN.triggerIOread()
-        result_parser(r, 'triggerIOread()')
+        check_error(r, 'triggerIOread()')
         return {0: False, 1: True}[r]
 
     def start_multiple(self, channel_mask: Sequence[bool]):
-        mask = sum(2**i for i in range(self.n_channels) if channel_mask[i])
+        mask = sum(2**i for i in range(self.num_channels) if channel_mask[i])
         r = self.SD_AIN.DAQstartMultiple(mask)
-        result_parser(r, f'DAQstartMultiple({mask})')
+        check_error(r, f'DAQstartMultiple({mask})')

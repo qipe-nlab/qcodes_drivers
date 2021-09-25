@@ -11,7 +11,7 @@ from qcodes.utils.validators import Sequence as SequenceValidator
 
 from . import keysightSD1
 from .keysightSD1 import SD_Wave
-from .SD_Module import SD_Module, result_parser
+from .SD_Module import SD_Module, check_error
 
 # TODO: check whether dc offset is held even while AWG is stopped
 
@@ -30,7 +30,7 @@ class SD_AWG_CHANNEL(InstrumentChannel):
         # set waveshape = AWG
         waveshape = keysightSD1.SD_Waveshapes.AOU_AWG
         r = self.parent.awg.channelWaveShape(self.channel, waveshape)
-        result_parser(r, f'channelWaveShape({self.channel}, {waveshape})')
+        check_error(r, f'channelWaveShape({self.channel}, {waveshape})')
 
         self.dc_offset = Parameter(
             name='dc_offset',
@@ -52,9 +52,9 @@ class SD_AWG_CHANNEL(InstrumentChannel):
         self.pxi_trigger_number = Parameter(
             name='pxi_trigger_number',
             instrument=self,
-            vals=Ints(0, self.parent.n_triggers - 1),
+            vals=Ints(0, self.parent.num_triggers - 1),
             initial_cache_value=0,
-            docstring=f'0, 1, ..., {self.parent.n_triggers - 1}',
+            docstring=f'0, 1, ..., {self.parent.num_triggers - 1}',
             set_cmd=self.set_pxi_trigger_number)
         self.trigger_behavior = Parameter(
             name='trigger_behavior',
@@ -96,14 +96,14 @@ class SD_AWG_CHANNEL(InstrumentChannel):
 
     def set_dc_offset(self, offset: float):
         r = self.parent.awg.channelOffset(self.channel, offset)
-        result_parser(r, f'channelOffset({self.channel}, {offset})')
+        check_error(r, f'channelOffset({self.channel}, {offset})')
 
     def write_AWGtriggerExternalConfig(self):
         source = {'external': 0, 'pxi': 4000 + self.pxi_trigger_number()}[self.trigger_source()]
         behavior = {'high': 1, 'low': 2, 'rise': 3, 'fall': 4}[self.trigger_behavior()]
         sync = {False: 0, True: 1}[self.trigger_sync_clk10()]
         r = self.parent.awg.AWGtriggerExternalConfig(self.channel, source, behavior, sync)
-        result_parser(r, f'AWGtriggerExternalConfig({self.channel}, {source}, {behavior}, {sync})')
+        check_error(r, f'AWGtriggerExternalConfig({self.channel}, {source}, {behavior}, {sync})')
 
     def set_trigger_source(self, value: str):
         self.trigger_source.cache.set(value)
@@ -124,19 +124,19 @@ class SD_AWG_CHANNEL(InstrumentChannel):
     def set_cyclic(self, value: bool):
         cyclic = {False: 0, True: 1}[value]
         r = self.parent.awg.AWGqueueConfig(self.channel, cyclic)
-        result_parser(r, f'AWGqueueConfig({self.channel}, {cyclic})')
+        check_error(r, f'AWGqueueConfig({self.channel}, {cyclic})')
 
     def flush_queue(self):
         r = self.parent.awg.AWGflush(self.channel)
-        result_parser(r, f'AWGflush({self.channel})')
+        check_error(r, f'AWGflush({self.channel})')
 
     def start(self):
         r = self.parent.awg.AWGstart(self.channel)
-        result_parser(r, f'AWGstart({self.channel})')
+        check_error(r, f'AWGstart({self.channel})')
 
     def stop(self):
         r = self.parent.awg.AWGstop(self.channel)
-        result_parser(r, f'AWGstop({self.channel})')
+        check_error(r, f'AWGstop({self.channel})')
 
     def is_running(self) -> bool:
         return self.parent.awg.AWGisRunning(self.channel)
@@ -144,7 +144,7 @@ class SD_AWG_CHANNEL(InstrumentChannel):
 
 class SD_AWG(SD_Module):
 
-    def __init__(self, name: str, chassis: int, slot: int, channels: int, triggers: int, **kwargs):
+    def __init__(self, name: str, chassis: int, slot: int, num_channels: int, num_triggers: int, **kwargs):
         """
         channels: number of channels in the module
         triggers: number of PXI trigger lines
@@ -155,11 +155,11 @@ class SD_AWG(SD_Module):
         self._lock = RLock()
 
         # store card-specifics
-        self.n_channels = channels
-        self.n_triggers = triggers
+        self.num_channels = num_channels
+        self.num_triggers = num_triggers
 
         self.awg: keysightSD1.SD_AOU = self.SD_module
-        channels = [SD_AWG_CHANNEL(parent=self, name=str(i+1)) for i in range(self.n_channels)]
+        channels = [SD_AWG_CHANNEL(parent=self, name=str(i+1)) for i in range(self.num_channels)]
         channel_list = ChannelList(parent=self, name='channel', chan_type=SD_AWG_CHANNEL, chan_list=channels)
         self.add_submodule('channel', channel_list)
 
@@ -190,32 +190,32 @@ class SD_AWG(SD_Module):
         self.add_function('queue_waveform',
             call_cmd=self.queue_waveform,
             args=(
-                Ints(1, self.n_channels),
+                Ints(1, self.num_channels),
                 Ints(min_value=0),
                 Enum('auto', 'software/hvi', 'external'),
                 Bool(),
                 Multiples(10, min_value=0),
                 Ints(min_value=0),
             ),
-            docstring=f"the waveform must be already loaded in the module onboard RAM; args: channel = 1, ..., {self.n_channels}; waveform_id = non-negative int; trigger = 'auto', 'software/hvi', or 'external'; per_cycle = True or False; delay (ns) = non-negative multiple of 10; cycles = non-negative int, zero means infinite")
+            docstring=f"the waveform must be already loaded in the module onboard RAM; args: channel = 1, ..., {self.num_channels}; waveform_id = non-negative int; trigger = 'auto', 'software/hvi', or 'external'; per_cycle = True or False; delay (ns) = non-negative multiple of 10; cycles = non-negative int, zero means infinite")
         self.add_function('start_multiple',
             call_cmd=self.start_multiple,
-            args=(SequenceValidator(Bool(), length=self.n_channels),),
+            args=(SequenceValidator(Bool(), length=self.num_channels),),
             docstring='start from the beginning of the queues; arg = list of booleans, which channels to start')
 
     def set_trigger_port_direction(self, value: str):
         direction = {'in': 1, 'out': 0}[value]
         r = self.awg.triggerIOconfig(direction)
-        result_parser(r, f'triggerIOconfig({direction})')
+        check_error(r, f'triggerIOconfig({direction})')
 
     def set_trigger_value(self, value: bool):
         output = {False: 0, True: 1}[value]
         r = self.awg.triggerIOwrite(output)
-        result_parser(r, f'triggerIOwrite({output})')
+        check_error(r, f'triggerIOwrite({output})')
 
     def get_trigger_value(self) -> bool:
         r = self.awg.triggerIOread()
-        result_parser(r, 'triggerIOread()')
+        check_error(r, 'triggerIOread()')
         return {0: False, 1: True}[r]
     
     def load_waveform(self, waveform_object: SD_Wave, waveform_id: int) -> int:
@@ -235,7 +235,8 @@ class SD_AWG(SD_Module):
         # Lock to avoid concurrent access of waveformLoad()/waveformReLoad()
         with self._lock:
             r = self.awg.waveformLoad(waveform_object, waveform_id)
-        return result_parser(r, f'waveformLoad(waveform_object, {waveform_id})')
+        check_error(r, f'waveformLoad(waveform_object, {waveform_id})')
+        return r
 
     def reload_waveform(self, waveform_object: SD_Wave, waveform_id: int) -> int:
         """Replace a waveform located in the module onboard RAM.
@@ -256,13 +257,14 @@ class SD_AWG(SD_Module):
         # Lock to avoid concurrent access of waveformLoad()/waveformReLoad()
         with self._lock:
             r = self.awg.waveformReLoad(waveform_object, waveform_id, padding_mode)
-        return result_parser(r, f'reload_waveform(waveform_object, {waveform_id}, {padding_mode})')
+        check_error(r, f'reload_waveform(waveform_object, {waveform_id}, {padding_mode})')
+        return r
 
     def flush_waveform(self):
         # Lock to avoid concurrent access of waveformLoad()/waveformReLoad()
         with self._lock:
             r = self.awg.waveformFlush()
-        return result_parser(r, 'waveformFlush()')
+        check_error(r, 'waveformFlush()')
 
     def queue_waveform(self, channel: int, waveform_id: int, trigger: str, per_cycle: bool, delay: int, cycles: int):
         mode = {('auto', False)        : 0,
@@ -274,12 +276,12 @@ class SD_AWG(SD_Module):
         delay_10 = delay // 10
         PRESCALER = 0  # always use maximum sampling rate
         r = self.awg.AWGqueueWaveform(channel, waveform_id, mode, delay_10, cycles, PRESCALER)
-        result_parser(r, f'AWGqueueWaveform({channel}, {waveform_id}, {mode}, {delay_10}, {cycles}, {PRESCALER})')
+        check_error(r, f'AWGqueueWaveform({channel}, {waveform_id}, {mode}, {delay_10}, {cycles}, {PRESCALER})')
 
     def start_multiple(self, channel_mask: Sequence[bool]):
-        mask = sum(2**i for i in range(self.n_channels) if channel_mask[i])
+        mask = sum(2**i for i in range(self.num_channels) if channel_mask[i])
         r = self.awg.AWGstartMultiple(mask)
-        result_parser(r, f'AWGstartMultiple({mask})')
+        check_error(r, f'AWGstartMultiple({mask})')
 
     @staticmethod
     def new_waveform(data: np.ndarray) -> SD_Wave:
@@ -294,5 +296,5 @@ class SD_AWG(SD_Module):
         sd_wave = SD_Wave()
         waveform_type = keysightSD1.SD_WaveformTypes.WAVE_ANALOG
         r = sd_wave.newFromArrayDouble(waveform_type, data)
-        result_parser(r, f'newFromArrayDouble({waveform_type}, data)')
+        check_error(r, f'newFromArrayDouble({waveform_type}, data)')
         return sd_wave

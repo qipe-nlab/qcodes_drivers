@@ -12,7 +12,7 @@ from qcodes.instrument.base import Instrument
 
 from .memory_manager import MemoryManager
 from .SD_AWG import SD_AWG
-from .SD_Module import keysightSD1, result_parser
+from .SD_Module import keysightSD1, check_error
 
 F = TypeVar('F', bound=Callable[..., Any])
 
@@ -212,9 +212,9 @@ class SD_AWG_Async(SD_AWG):
     _modules: Dict[str, 'SD_AWG_Async'] = {}
     """ All async modules by unique module id. """
 
-    def __init__(self, name, chassis, slot, channels, triggers, waveform_size_limit=1e6,
+    def __init__(self, name, chassis, slot, num_channels, num_triggers, waveform_size_limit=1e6,
                  asynchronous=True, **kwargs):
-        super().__init__(name, chassis, slot, channels, triggers, **kwargs)
+        super().__init__(name, chassis, slot, num_channels, num_triggers, **kwargs)
 
         self._asynchronous = False
         self._waveform_size_limit = waveform_size_limit
@@ -360,7 +360,7 @@ class SD_AWG_Async(SD_AWG):
         super().flush_waveform()
         self._memory_manager = MemoryManager(self.log, self._waveform_size_limit)
         self._enqueued_waverefs = {}
-        for i in range(self.n_channels):
+        for i in range(self.num_channels):
             self._enqueued_waverefs[i+1] = []
 
         self._upload_queue = queue.Queue()
@@ -385,7 +385,7 @@ class SD_AWG_Async(SD_AWG):
 
 
     def _release_waverefs(self):
-        for i in range(self.n_channels):
+        for i in range(self.num_channels):
             self._release_waverefs_awg(i + 1)
 
 
