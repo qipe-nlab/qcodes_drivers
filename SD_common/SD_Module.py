@@ -71,7 +71,7 @@ class SD_Module(Instrument):
             docstring='The product name of the device')
         self.serial_number = Parameter(
             name='serial_number',
-            insturment=self,
+            instrument=self,
             get_cmd=self.get_serial_number,
             docstring='The serial number of the device')
         self.chassis_number = Parameter(
@@ -86,7 +86,7 @@ class SD_Module(Instrument):
             docstring='The slot number where the device is located')
         self.firmware_version = Parameter(
             name='firmware_version',
-            instrumen=self,
+            instrument=self,
             get_cmd=self.get_firmware_version,
             docstring='The firmware version of the device')
         self.hardware_version = Parameter(
