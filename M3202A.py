@@ -30,8 +30,7 @@ class M3202A(SD_AWG_Async):
         slot: slot number where the device is plugged in
     """
     def __init__(self, name: str, chassis: int, slot: int, **kwargs):
-        super().__init__(name, chassis, slot, channels=4, triggers=8,
-                         legacy_channel_numbering=False, **kwargs)
+        super().__init__(name, chassis, slot, channels=4, triggers=8, **kwargs)
 
         module_name = 'M3202A'
         if self.module_name != module_name:

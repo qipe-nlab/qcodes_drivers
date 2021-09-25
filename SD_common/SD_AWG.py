@@ -9,9 +9,9 @@ from qcodes.instrument.parameter import Parameter
 from qcodes.utils.validators import Bool, Enum, Ints, Multiples, Numbers
 from qcodes.utils.validators import Sequence as SequenceValidator
 
-from keysightSD1 import SD_Wave
-
-from .SD_Module import SD_Module, keysightSD1, result_parser
+from . import keysightSD1
+from .keysightSD1 import SD_Wave
+from .SD_Module import SD_Module, result_parser
 
 # TODO: check whether dc offset is held even while AWG is stopped
 
@@ -34,7 +34,7 @@ class SD_AWG_CHANNEL(InstrumentChannel):
 
         self.dc_offset = Parameter(
             name='dc_offset',
-            insturment=self,
+            instrument=self,
             unit='V',
             vals=Numbers(-1.5, 1.5),
             initial_value=0,
@@ -88,7 +88,7 @@ class SD_AWG_CHANNEL(InstrumentChannel):
             call_cmd=self.start,
             docstring='start from the beginning of the queue')
         self.add_function('stop',
-            call_cmd=self.stop(),
+            call_cmd=self.stop,
             docstring='set the output to zero, reset the queue to its initial position, and ignore all following incoming triggers')
         self.add_function('is_running',
             call_cmd=self.is_running,
@@ -205,16 +205,16 @@ class SD_AWG(SD_Module):
 
     def set_trigger_port_direction(self, value: str):
         direction = {'in': 1, 'out': 0}[value]
-        r = self.SD_AIN.triggerIOconfig(direction)
+        r = self.awg.triggerIOconfig(direction)
         result_parser(r, f'triggerIOconfig({direction})')
 
     def set_trigger_value(self, value: bool):
         output = {False: 0, True: 1}[value]
-        r = self.SD_AIN.triggerIOwrite(output)
+        r = self.awg.triggerIOwrite(output)
         result_parser(r, f'triggerIOwrite({output})')
 
     def get_trigger_value(self) -> bool:
-        r = self.SD_AIN.triggerIOread()
+        r = self.awg.triggerIOread()
         result_parser(r, 'triggerIOread()')
         return {0: False, 1: True}[r]
     
@@ -291,7 +291,7 @@ class SD_AWG(SD_Module):
             raise Exception('waveform must be a 1D numpy array with dtype=float64')
         if len(data) % 5 != 0:
             raise Exception('waveform length must be a multiple of 5')
-        sd_wave = keysightSD1.SD_Wave()
+        sd_wave = SD_Wave()
         waveform_type = keysightSD1.SD_WaveformTypes.WAVE_ANALOG
         r = sd_wave.newFromArrayDouble(waveform_type, data)
         result_parser(r, f'newFromArrayDouble({waveform_type}, data)')

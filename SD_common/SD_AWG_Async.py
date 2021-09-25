@@ -8,6 +8,7 @@ from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
 
 import numpy as np
+from qcodes.instrument.base import Instrument
 
 from .memory_manager import MemoryManager
 from .SD_AWG import SD_AWG
@@ -335,6 +336,7 @@ class SD_AWG_Async(SD_AWG):
         """
         Closes the module and stops background thread.
         """
+        if not Instrument.is_valid(self): return  # return if already closed
         self.log.info(f'stopping ({self.module_id})')
         if self.asynchronous():
             self._stop_asynchronous()
@@ -358,7 +360,7 @@ class SD_AWG_Async(SD_AWG):
         super().flush_waveform()
         self._memory_manager = MemoryManager(self.log, self._waveform_size_limit)
         self._enqueued_waverefs = {}
-        for i in range(self.channels):
+        for i in range(self.n_channels):
             self._enqueued_waverefs[i+1] = []
 
         self._upload_queue = queue.Queue()
@@ -383,7 +385,7 @@ class SD_AWG_Async(SD_AWG):
 
 
     def _release_waverefs(self):
-        for i in range(self.channels):
+        for i in range(self.n_channels):
             self._release_waverefs_awg(i + 1)
 
 
