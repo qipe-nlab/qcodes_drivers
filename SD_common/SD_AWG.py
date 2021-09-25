@@ -13,12 +13,6 @@ from . import keysightSD1
 from .keysightSD1 import SD_Wave
 from .SD_Module import SD_Module, check_error
 
-# TODO: check whether dc offset is held even while AWG is stopped
-
-# TODO: check the restrictions on the length of each waveform
-# Labber driver says len >= 30 and len % 10 == 0
-# QCodeS driver says len >= 2000
-
 
 class SD_AWG_CHANNEL(InstrumentChannel):
     parent: SD_AWG
@@ -27,10 +21,23 @@ class SD_AWG_CHANNEL(InstrumentChannel):
         super().__init__(parent, name, **kwargs)
         self.channel = int(name)
 
-        # set waveshape = AWG
+        # output signal = arbitrary waveform
         waveshape = keysightSD1.SD_Waveshapes.AOU_AWG
         r = self.parent.awg.channelWaveShape(self.channel, waveshape)
         check_error(r, f'channelWaveShape({self.channel}, {waveshape})')
+
+        # disable modulations
+        modulation_type = keysightSD1.SD_ModulationTypes.AOU_MOD_OFF
+        r = self.parent.awg.modulationAngleConfig(self.channel, modulation_type, 0)
+        check_error(r, f'modulationAngleConfig({self.channel}, {modulation_type}, 0)')
+        r = self.parent.awg.modulationAmplitudeConfig(self.channel, modulation_type, 0)
+        check_error(r, f'modulationAmplitudeConfig({self.channel}, {modulation_type}, 0)')
+        r = self.parent.awg.modulationIQconfig(self.channel, 0)
+        check_error(r, f'modulationIQconfig({self.channel}, 0)')
+
+        # waveform data is normalized to -1...1, so multiply it by 1.5 V to use the full output range
+        r = self.parent.awg.channelAmplitude(self.channel, 1.5)
+        check_error(r, f'channelAmplitude({self.channel}, 1.5)')
 
         self.dc_offset = Parameter(
             name='dc_offset',
@@ -159,6 +166,11 @@ class SD_AWG(SD_Module):
         self.num_triggers = num_triggers
 
         self.awg: keysightSD1.SD_AOU = self.SD_module
+
+        # delete all waveforms from the module onboard RAM and flush all the AWG queues
+        r = self.awg.waveformFlush()
+        check_error(r, 'waveformFlush()')
+
         channels = [SD_AWG_CHANNEL(parent=self, name=str(i+1)) for i in range(self.num_channels)]
         channel_list = ChannelList(parent=self, name='channel', chan_type=SD_AWG_CHANNEL, chan_list=channels)
         self.add_submodule('channel', channel_list)
@@ -285,16 +297,18 @@ class SD_AWG(SD_Module):
 
     @staticmethod
     def new_waveform(data: np.ndarray) -> SD_Wave:
-        """Create an SD_Wave object from a 1D numpy array with dtype=float64.
-        The length of the array must be a multiple of 5.
+        """Create an SD_Wave object from a 1D numpy array in volts with dtype=float64.
+        The voltages must be between -1.5 V and 1.5 V.
+        The output will clip when waveform + dc_offset is outside the +-1.5 V range.
+        The length of the array must be a multiple of 10 and >= 20.
         The SD_Wave object is stored in the PC RAM, not in the module onboard RAM.
         """
         if data.dtype != np.float64 or data.ndim != 1:
             raise Exception('waveform must be a 1D numpy array with dtype=float64')
-        if len(data) % 5 != 0:
-            raise Exception('waveform length must be a multiple of 5')
+        if len(data) % 10 != 0 or len(data) < 20:
+            raise Exception('waveform length must be a multiple of 10 and >= 20')
         sd_wave = SD_Wave()
         waveform_type = keysightSD1.SD_WaveformTypes.WAVE_ANALOG
-        r = sd_wave.newFromArrayDouble(waveform_type, data)
+        r = sd_wave.newFromArrayDouble(waveform_type, data / 1.5)
         check_error(r, f'newFromArrayDouble({waveform_type}, data)')
         return sd_wave

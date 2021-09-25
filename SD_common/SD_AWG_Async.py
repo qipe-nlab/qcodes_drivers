@@ -202,7 +202,7 @@ class SD_AWG_Async(SD_AWG):
     @dataclass
     class UploadAction:
         action: str
-        wave: Optional[Union[List[float], List[int], np.ndarray]]
+        wave: Optional[np.ndarray]
         wave_ref: Optional[WaveformReference]
 
 
@@ -309,9 +309,7 @@ class SD_AWG_Async(SD_AWG):
 
 
     @switchable(asynchronous, enabled=True)
-    def upload_waveform(self, wave: Union[List[float],
-                                          List[int], np.ndarray]
-                        ) -> _WaveformReferenceInternal:
+    def upload_waveform(self, wave: np.ndarray) -> _WaveformReferenceInternal:
         """
         Upload the wave using the uploader thread for this AWG.
         Args:
