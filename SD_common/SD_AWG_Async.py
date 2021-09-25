@@ -101,7 +101,6 @@ class _WaveformReferenceInternal(WaveformReference):
         if self._released:
             raise Exception('Reference already released')
 
-        self._released = True
         self._try_release_slot()
 
 
@@ -142,8 +141,9 @@ class _WaveformReferenceInternal(WaveformReference):
 
 
     def _try_release_slot(self):
-        if self._released and self._queued_count <= 0:
+        if not self._released and self._queued_count <= 0:
             self._allocated_slot.release()
+            self._released = True
 
 
     def __del__(self):
@@ -333,7 +333,6 @@ class SD_AWG_Async(SD_AWG):
         """
         Closes the module and stops background thread.
         """
-        if not Instrument.is_valid(self): return  # return if already closed
         self.log.info(f'stopping ({self.module_id})')
         if self.asynchronous():
             self._stop_asynchronous()
