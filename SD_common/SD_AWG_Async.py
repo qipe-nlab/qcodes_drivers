@@ -251,12 +251,12 @@ class SD_AWG_Async(SD_AWG):
     # disable synchronous method of parent class, when wave memory is managed by this class.
     #
     @switchable(asynchronous, enabled=False)
-    def load_waveform(self, waveform_object, waveform_id):
-        super().load_waveform(waveform_object, waveform_id)
+    def load_waveform(self, data, waveform_id):
+        super().load_waveform(data, waveform_id)
 
     @switchable(asynchronous, enabled=False)
-    def reload_waveform(self, waveform_object, waveform_id):
-        super().reload_waveform(waveform_object, waveform_id)
+    def reload_waveform(self, data, waveform_id):
+        super().reload_waveform(data, waveform_id)
 
     @switchable(asynchronous, enabled=False)
     def flush_waveform(self):
@@ -308,22 +308,19 @@ class SD_AWG_Async(SD_AWG):
 
 
     @switchable(asynchronous, enabled=True)
-    def upload_waveform(self, wave: np.ndarray) -> _WaveformReferenceInternal:
+    def load_waveform_async(self, data: np.ndarray) -> _WaveformReferenceInternal:
         """
         Upload the wave using the uploader thread for this AWG.
         Args:
-            wave: wave data to upload.
+            data: wave data to upload.
         Returns:
             reference to the wave
         """
-        # if len(wave) < 2000:
-        #     raise Exception(f'{len(wave)} is less than 2000 samples required for proper functioning of AWG')
-
-        allocated_slot = self._memory_manager.allocate(len(wave))
+        allocated_slot = self._memory_manager.allocate(len(data))
         ref = _WaveformReferenceInternal(allocated_slot, self.name)
         self.log.debug(f'upload: {ref.waveform_id}')
 
-        entry = SD_AWG_Async.UploadAction('upload', wave, ref)
+        entry = SD_AWG_Async.UploadAction('upload', data, ref)
         self._upload_queue.put(entry)
 
         return ref
@@ -402,16 +399,12 @@ class SD_AWG_Async(SD_AWG):
 
         self.log.info(f'Reserving awg memory for {len(new_slots)} slots')
 
-        zeros = []
-        wave = None
         total_size = 0
         total_duration = 0
         for slot in new_slots:
             start = time.perf_counter()
-            if len(zeros) != slot.size or wave is None:
-                zeros = np.zeros(slot.size, np.float64)
-                wave = super().new_waveform(zeros)
-            super().load_waveform(wave, slot.number)
+            zeros = np.zeros(slot.size, np.float64)
+            super().load_waveform(zeros, slot.number)
             duration = time.perf_counter() - start
             total_duration += duration
             total_size += slot.size
@@ -437,10 +430,7 @@ class SD_AWG_Async(SD_AWG):
             self.log.debug(f'Uploading {wave_ref.waveform_id}')
             try:
                 start = time.perf_counter()
-
-                wave = super().new_waveform(entry.wave)
-                super().reload_waveform(wave, wave_ref.waveform_id)
-
+                super().reload_waveform(entry.wave, wave_ref.waveform_id)
                 duration = time.perf_counter() - start
                 speed = len(entry.wave)/duration
                 self.log.debug(f'Uploaded {wave_ref.waveform_id} in {duration*1000:5.2f} ms ({speed/1e6:5.2f} MSa/s)')

@@ -6,12 +6,30 @@ from typing import Sequence
 import numpy as np
 from qcodes.instrument.channel import ChannelList, InstrumentChannel
 from qcodes.instrument.parameter import Parameter
-from qcodes.utils.validators import Bool, Enum, Ints, Multiples, Numbers
+from qcodes.utils.validators import Arrays, Bool, Enum, Ints, Multiples, Numbers
 from qcodes.utils.validators import Sequence as SequenceValidator
 
 from . import keysightSD1
 from .keysightSD1 import SD_Wave
 from .SD_Module import SD_Module, check_error
+
+
+def new_waveform(data: np.ndarray) -> SD_Wave:
+    """Create an SD_Wave object from a 1D numpy array in volts with dtype=float64.
+    The voltages must be between -1.5 V and 1.5 V.
+    The output will clip when waveform + dc_offset is outside the +-1.5 V range.
+    The length of the array must be a multiple of 10 and >= 20.
+    The SD_Wave object is stored in the PC RAM, not in the module onboard RAM.
+    """
+    if data.dtype != np.float64 or data.ndim != 1:
+        raise Exception('waveform must be a 1D numpy array with dtype=float64')
+    if len(data) % 10 != 0 or len(data) < 20:
+        raise Exception('waveform length must be a multiple of 10 and >= 20')
+    sd_wave = SD_Wave()
+    waveform_type = keysightSD1.SD_WaveformTypes.WAVE_ANALOG
+    r = sd_wave.newFromArrayDouble(waveform_type, data / 1.5)
+    check_error(r, f'newFromArrayDouble({waveform_type}, data)')
+    return sd_wave
 
 
 class SD_AWG_CHANNEL(InstrumentChannel):
@@ -195,7 +213,14 @@ class SD_AWG(SD_Module):
             get_cmd=self.get_trigger_value,
             set_cmd=self.set_trigger_value)
 
-        # TODO: add load_waveform and reload_waveform
+        self.add_function('load_waveform',
+            call_cmd=self.load_waveform,
+            args=(Arrays(valid_types=(np.float64,)), Ints(min_value=0)),
+            docstring='load a waveform into the module onboard RAM; args: data = 1D numpy array in volts with dtype=float64; waverform_id = non-negative int; returns: available onboard RAM in waveform points')
+        self.add_function('reload_waveform',
+            call_cmd=self.reload_waveform,
+            args=(Arrays(valid_types=(np.float64,)), Ints(min_value=0)),
+            docstring='replace a waveform located in the module onboard RAM; the size of the new waveform must be smaller than or equal to the existing waveform; args: data = 1D numpy array in volts with dtype=float64; waverform_id = non-negative int; returns: available onboard RAM in waveform points')
         self.add_function('flush_waveform',
             call_cmd=self.flush_waveform,
             docstring='Delete all waveforms from the module onboard RAM and flush all the AWG queues.')
@@ -230,41 +255,16 @@ class SD_AWG(SD_Module):
         check_error(r, 'triggerIOread()')
         return {0: False, 1: True}[r]
     
-    def load_waveform(self, waveform_object: SD_Wave, waveform_id: int) -> int:
-        """Load the specified waveform into the module onboard RAM.
-        Waveforms must be created first as an instance of the SD_Wave class.
-
-        Args:
-            waveform_object: the waveform object
-            waveform_id: waveform number to identify the waveform in
-                subsequent related function calls.
-
-        Returns:
-            available onboard RAM in waveform points
-        """
-        if waveform_id < 0:
-            raise Exception('waveform_id must be a non-negative integer')
+    def load_waveform(self, data: np.ndarray, waveform_id: int) -> int:
+        waveform_object = new_waveform(data)
         # Lock to avoid concurrent access of waveformLoad()/waveformReLoad()
         with self._lock:
             r = self.awg.waveformLoad(waveform_object, waveform_id)
         check_error(r, f'waveformLoad(waveform_object, {waveform_id})')
         return r
 
-    def reload_waveform(self, waveform_object: SD_Wave, waveform_id: int) -> int:
-        """Replace a waveform located in the module onboard RAM.
-        The size of the new waveform must be smaller than or
-        equal to the existing waveform.
-
-        Args:
-            waveform_object: the waveform object
-            waveform_id: waveform number to identify the waveform
-                in subsequent related function calls.
-
-        Returns:
-            available onboard RAM in waveform points
-        """
-        if waveform_id < 0:
-            raise Exception('waveform_id must be a non-negative integer')
+    def reload_waveform(self, data: np.ndarray, waveform_id: int) -> int:
+        waveform_object = new_waveform(data)
         padding_mode = 0
         # Lock to avoid concurrent access of waveformLoad()/waveformReLoad()
         with self._lock:
@@ -294,21 +294,3 @@ class SD_AWG(SD_Module):
         mask = sum(2**i for i in range(self.num_channels) if channel_mask[i])
         r = self.awg.AWGstartMultiple(mask)
         check_error(r, f'AWGstartMultiple({mask})')
-
-    @staticmethod
-    def new_waveform(data: np.ndarray) -> SD_Wave:
-        """Create an SD_Wave object from a 1D numpy array in volts with dtype=float64.
-        The voltages must be between -1.5 V and 1.5 V.
-        The output will clip when waveform + dc_offset is outside the +-1.5 V range.
-        The length of the array must be a multiple of 10 and >= 20.
-        The SD_Wave object is stored in the PC RAM, not in the module onboard RAM.
-        """
-        if data.dtype != np.float64 or data.ndim != 1:
-            raise Exception('waveform must be a 1D numpy array with dtype=float64')
-        if len(data) % 10 != 0 or len(data) < 20:
-            raise Exception('waveform length must be a multiple of 10 and >= 20')
-        sd_wave = SD_Wave()
-        waveform_type = keysightSD1.SD_WaveformTypes.WAVE_ANALOG
-        r = sd_wave.newFromArrayDouble(waveform_type, data / 1.5)
-        check_error(r, f'newFromArrayDouble({waveform_type}, data)')
-        return sd_wave
