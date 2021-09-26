@@ -106,6 +106,15 @@ class SD_AWG_CHANNEL(InstrumentChannel):
             docstring='all waveforms must be already queued',
             set_cmd=self.set_cyclic)
 
+        self.add_function('queue_waveform',
+            call_cmd=self.queue_waveform,
+            args=(
+                Ints(min_value=0),
+                Enum('auto', 'software/hvi', 'external'),
+                Bool(),
+                Multiples(10, min_value=0),
+                Ints(min_value=0)),
+            docstring=f"the waveform must be already loaded in the module onboard RAM; args: waveform_id = non-negative int; trigger = 'auto', 'software/hvi', or 'external'; per_cycle = True or False; delay (ns) = non-negative multiple of 10; cycles = non-negative int, zero means infinite")
         self.add_function('flush_queue',
             call_cmd=self.flush_queue,
             docstring='waveforms are not removed from the module onboard RAM')
@@ -150,6 +159,18 @@ class SD_AWG_CHANNEL(InstrumentChannel):
         cyclic = {False: 0, True: 1}[value]
         r = self.parent.awg.AWGqueueConfig(self.channel, cyclic)
         check_error(r, f'AWGqueueConfig({self.channel}, {cyclic})')
+    
+    def queue_waveform(self, waveform_id: int, trigger: str, per_cycle: bool, delay: int, cycles: int):
+        mode = {('auto', False)        : 0,
+                ('auto', True)         : 0,
+                ('software/hvi', False): 1,
+                ('software/hvi', True) : 5,
+                ('external', False)    : 2,
+                ('external', True)     : 6}[trigger, per_cycle]
+        delay_10 = delay // 10
+        PRESCALER = 0  # always use maximum sampling rate
+        r = self.parent.awg.AWGqueueWaveform(self.channel, waveform_id, mode, delay_10, cycles, PRESCALER)
+        check_error(r, f'AWGqueueWaveform({self.channel}, {waveform_id}, {mode}, {delay_10}, {cycles}, {PRESCALER})')
 
     def flush_queue(self):
         r = self.parent.awg.AWGflush(self.channel)
@@ -224,17 +245,6 @@ class SD_AWG(SD_Module):
         self.add_function('flush_waveform',
             call_cmd=self.flush_waveform,
             docstring='Delete all waveforms from the module onboard RAM and flush all the AWG queues.')
-        self.add_function('queue_waveform',
-            call_cmd=self.queue_waveform,
-            args=(
-                Ints(1, self.num_channels),
-                Ints(min_value=0),
-                Enum('auto', 'software/hvi', 'external'),
-                Bool(),
-                Multiples(10, min_value=0),
-                Ints(min_value=0),
-            ),
-            docstring=f"the waveform must be already loaded in the module onboard RAM; args: channel = 1, ..., {self.num_channels}; waveform_id = non-negative int; trigger = 'auto', 'software/hvi', or 'external'; per_cycle = True or False; delay (ns) = non-negative multiple of 10; cycles = non-negative int, zero means infinite")
         self.add_function('start_multiple',
             call_cmd=self.start_multiple,
             args=(SequenceValidator(Bool(), length=self.num_channels),),
@@ -277,18 +287,6 @@ class SD_AWG(SD_Module):
         with self._lock:
             r = self.awg.waveformFlush()
         check_error(r, 'waveformFlush()')
-
-    def queue_waveform(self, channel: int, waveform_id: int, trigger: str, per_cycle: bool, delay: int, cycles: int):
-        mode = {('auto', False)        : 0,
-                ('auto', True)         : 0,
-                ('software/hvi', False): 1,
-                ('software/hvi', True) : 5,
-                ('external', False)    : 2,
-                ('external', True)     : 6}[trigger, per_cycle]
-        delay_10 = delay // 10
-        PRESCALER = 0  # always use maximum sampling rate
-        r = self.awg.AWGqueueWaveform(channel, waveform_id, mode, delay_10, cycles, PRESCALER)
-        check_error(r, f'AWGqueueWaveform({channel}, {waveform_id}, {mode}, {delay_10}, {cycles}, {PRESCALER})')
 
     def start_multiple(self, channel_mask: Sequence[bool]):
         mask = sum(2**i for i in range(self.num_channels) if channel_mask[i])
