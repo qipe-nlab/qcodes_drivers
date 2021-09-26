@@ -106,15 +106,6 @@ class SD_AWG_CHANNEL(InstrumentChannel):
             docstring='all waveforms must be already queued',
             set_cmd=self.set_cyclic)
 
-        self.add_function('queue_waveform',
-            call_cmd=self.queue_waveform,
-            args=(
-                Ints(min_value=0),
-                Enum('auto', 'software/hvi', 'external'),
-                Bool(),
-                Multiples(10, min_value=0),
-                Ints(min_value=0)),
-            docstring=f"the waveform must be already loaded in the module onboard RAM; args: waveform_id = non-negative int; trigger = 'auto', 'software/hvi', or 'external'; per_cycle = True or False; delay (ns) = non-negative multiple of 10; cycles = non-negative int, zero means infinite")
         self.add_function('flush_queue',
             call_cmd=self.flush_queue,
             docstring='waveforms are not removed from the module onboard RAM')
@@ -159,8 +150,20 @@ class SD_AWG_CHANNEL(InstrumentChannel):
         cyclic = {False: 0, True: 1}[value]
         r = self.parent.awg.AWGqueueConfig(self.channel, cyclic)
         check_error(r, f'AWGqueueConfig({self.channel}, {cyclic})')
-    
-    def queue_waveform(self, waveform_id: int, trigger: str, per_cycle: bool, delay: int, cycles: int):
+
+    def queue_waveform(self, waveform_id: int, trigger: str, per_cycle=True, cycles=1, delay=0):
+        """the waveform must be already loaded in the module onboard RAM
+        args:
+            waveform_id = non-negative int
+            trigger = 'auto', 'software/hvi', or 'external'
+            per_cycle = True or False
+            cycles = non-negative int, zero means infinite
+            delay (ns) = non-negative multiple of 10
+        """
+        if cycles < 0 or cycles % 1 != 0:
+            raise Exception('number of cycles must be a non-negative integer')
+        if delay < 0 or delay % 10 != 0:
+            raise Exception('delay must be a non-negative multiple of 10')
         mode = {('auto', False)        : 0,
                 ('auto', True)         : 0,
                 ('software/hvi', False): 1,
