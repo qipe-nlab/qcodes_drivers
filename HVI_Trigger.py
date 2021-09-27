@@ -11,14 +11,14 @@ from .SD_common.SD_Module import check_error, keysightSD1
 module_names = [
     '',
     'Module 0',
-    '',
     'Module 1',
-    '',
     'Module 2',
-    '',
-    '',
-    '',
     'DAQ 0',
+    '',
+    '',
+    '',
+    '',
+    '',
 ]
 
 assert module_names[0] == ''
@@ -79,7 +79,7 @@ class HVI_Trigger(Instrument):
             instrument=self,
             label='output',
             vals=Bool(),
-            initial_cache_value=False,
+            initial_value=False,
             docstring='use software/HVI trigger on the AWG/digitizer channels',
             set_cmd=self.set_output)
 
