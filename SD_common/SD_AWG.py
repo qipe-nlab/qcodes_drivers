@@ -220,9 +220,13 @@ class SD_AWG(SD_Module):
         r = self.awg.waveformFlush()
         check_error(r, 'waveformFlush()')
 
-        channels = [SD_AWG_CHANNEL(parent=self, name=str(i+1)) for i in range(self.num_channels)]
-        channel_list = ChannelList(parent=self, name='channel', chan_type=SD_AWG_CHANNEL, chan_list=channels)
-        self.add_submodule('channel', channel_list)
+        channels = (SD_AWG_CHANNEL(parent=self, name=f'ch{i+1}') for i in range(self.num_channels))
+        channel_list = ChannelList(parent=self, name='channels', chan_type=SD_AWG_CHANNEL, chan_list=channels)
+        self.add_submodule('channels', channel_list)
+
+        # this allows us to get a channel like awg.ch1
+        for i, channel in enumerate(channels):
+            self.add_submodule(f'ch{i+1}', channel)
 
         # for triggerIOconfig
         self.trigger_port_direction = Parameter(
