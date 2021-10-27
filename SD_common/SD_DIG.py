@@ -313,9 +313,14 @@ class SD_DIG(SD_Module):
         self.half_ranges_50 = half_ranges_50
 
         self.SD_AIN: keysightSD1.SD_AIN = self.SD_module
-        channels = [SD_DIG_CHANNEL(parent=self, name=str(i+1)) for i in range(self.num_channels)]
-        channel_list = ChannelList(parent=self, name='channel', chan_type=SD_DIG_CHANNEL, chan_list=channels)
-        self.add_submodule('channel', channel_list)
+
+        channels = (SD_DIG_CHANNEL(parent=self, name=f'ch{i+1}') for i in range(self.num_channels))
+        channel_list = ChannelList(parent=self, name='channels', chan_type=SD_DIG_CHANNEL, chan_list=channels)
+        self.add_submodule('channels', channel_list)
+
+        # this allows us to get a channel like dig.ch1
+        for i, channel in enumerate(channels):
+            self.add_submodule(f'ch{i+1}', channel)
 
         # for triggerIOconfig
         self.trigger_port_direction = Parameter(

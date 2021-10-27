@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from threading import RLock
 from typing import Sequence
+from warnings import warn
 
 import numpy as np
 from qcodes.instrument.channel import ChannelList, InstrumentChannel
 from qcodes.instrument.parameter import Parameter
-from qcodes.utils.validators import Arrays, Bool, Enum, Ints, Multiples, Numbers
+from qcodes.utils.validators import Arrays, Bool, Enum, Ints, Numbers
 from qcodes.utils.validators import Sequence as SequenceValidator
 
 from . import keysightSD1
@@ -16,6 +17,8 @@ from .SD_Module import SD_Module, check_error
 
 def new_waveform(data: np.ndarray) -> SD_Wave:
     """Create an SD_Wave object from a 1D numpy array in volts with dtype=float64.
+    The last value in the waveform should be zero in most cases, because the AWG
+    will keep outputting that value until the next cycle/waveform is played.
     The voltages must be between -1.5 V and 1.5 V.
     The output will clip when waveform + dc_offset is outside the +-1.5 V range.
     The length of the array must be a multiple of 10 and >= 20.
@@ -25,6 +28,10 @@ def new_waveform(data: np.ndarray) -> SD_Wave:
         raise Exception('waveform must be a 1D numpy array with dtype=float64')
     if len(data) % 10 != 0 or len(data) < 20:
         raise Exception('waveform length must be a multiple of 10 and >= 20')
+    if data[-1] != 0:
+        warn('The last value in the waveform is not zero. The AWG will keep'
+             'outputting that value until the next cycle/waveform is played.'
+             'This is undesirable in most cases.')
     sd_wave = SD_Wave()
     waveform_type = keysightSD1.SD_WaveformTypes.WAVE_ANALOG
     r = sd_wave.newFromArrayDouble(waveform_type, data / 1.5)
@@ -213,9 +220,13 @@ class SD_AWG(SD_Module):
         r = self.awg.waveformFlush()
         check_error(r, 'waveformFlush()')
 
-        channels = [SD_AWG_CHANNEL(parent=self, name=str(i+1)) for i in range(self.num_channels)]
-        channel_list = ChannelList(parent=self, name='channel', chan_type=SD_AWG_CHANNEL, chan_list=channels)
-        self.add_submodule('channel', channel_list)
+        channels = (SD_AWG_CHANNEL(parent=self, name=f'ch{i+1}') for i in range(self.num_channels))
+        channel_list = ChannelList(parent=self, name='channels', chan_type=SD_AWG_CHANNEL, chan_list=channels)
+        self.add_submodule('channels', channel_list)
+
+        # this allows us to get a channel like awg.ch1
+        for i, channel in enumerate(channels):
+            self.add_submodule(f'ch{i+1}', channel)
 
         # for triggerIOconfig
         self.trigger_port_direction = Parameter(
