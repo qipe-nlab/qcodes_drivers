@@ -29,8 +29,8 @@ def new_waveform(data: np.ndarray) -> SD_Wave:
     if len(data) % 10 != 0 or len(data) < 20:
         raise Exception('waveform length must be a multiple of 10 and >= 20')
     if data[-1] != 0:
-        warn('The last value in the waveform is not zero. The AWG will keep'
-             'outputting that value until the next cycle/waveform is played.'
+        warn('The last value in the waveform is not zero. The AWG will keep '
+             'outputting that value until the next cycle/waveform is played. '
              'This is undesirable in most cases.')
     sd_wave = SD_Wave()
     waveform_type = keysightSD1.SD_WaveformTypes.WAVE_ANALOG
@@ -215,10 +215,7 @@ class SD_AWG(SD_Module):
         self.num_triggers = num_triggers
 
         self.awg: keysightSD1.SD_AOU = self.SD_module
-
-        # delete all waveforms from the module onboard RAM and flush all the AWG queues
-        r = self.awg.waveformFlush()
-        check_error(r, 'waveformFlush()')
+        self.flush_waveform()
 
         channels = [SD_AWG_CHANNEL(parent=self, name=f'ch{i+1}', channel=i+1) for i in range(self.num_channels)]
         channel_list = ChannelList(parent=self, name='channels', chan_type=SD_AWG_CHANNEL, chan_list=channels)
@@ -297,6 +294,7 @@ class SD_AWG(SD_Module):
         return r
 
     def flush_waveform(self):
+        """delete all waveforms from the module onboard RAM and flush all the AWG queues"""
         # Lock to avoid concurrent access of waveformLoad()/waveformReLoad()
         with self._lock:
             r = self.awg.waveformFlush()
