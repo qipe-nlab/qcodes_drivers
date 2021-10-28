@@ -158,6 +158,22 @@ class E4407B(VisaInstrument):
         )
 
         self.add_parameter(
+            name="resolution_bandwidth",
+            get_cmd=":BAND?",
+            set_cmd=":BAND {}HZ",
+            get_parser=float,
+            unit='Hz',
+        )
+
+        self.add_parameter(
+            name="video_bandwidth",
+            get_cmd=":BAND:VID?",
+            set_cmd=":BAND:VID {}HZ",
+            get_parser=float,
+            unit='Hz',
+        )
+
+        self.add_parameter(
             name="sweep_time",
             label="Sweep time",
             get_cmd=":SENSe:SWEep:TIME?",
