@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# dir
+.ipynb_checkpoints
+
+# Data base file of qcodes
+*.db
