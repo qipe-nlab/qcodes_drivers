@@ -42,9 +42,9 @@ def new_waveform(data: np.ndarray) -> SD_Wave:
 class SD_AWG_CHANNEL(InstrumentChannel):
     parent: SD_AWG
 
-    def __init__(self, parent: SD_AWG, name: str, **kwargs):
+    def __init__(self, parent: SD_AWG, name: str, channel: int, **kwargs):
         super().__init__(parent, name, **kwargs)
-        self.channel = int(name)
+        self.channel = channel
 
         # output signal = arbitrary waveform
         waveshape = keysightSD1.SD_Waveshapes.AOU_AWG
@@ -220,7 +220,7 @@ class SD_AWG(SD_Module):
         r = self.awg.waveformFlush()
         check_error(r, 'waveformFlush()')
 
-        channels = (SD_AWG_CHANNEL(parent=self, name=f'ch{i+1}') for i in range(self.num_channels))
+        channels = [SD_AWG_CHANNEL(parent=self, name=f'ch{i+1}', channel=i+1) for i in range(self.num_channels)]
         channel_list = ChannelList(parent=self, name='channels', chan_type=SD_AWG_CHANNEL, chan_list=channels)
         self.add_submodule('channels', channel_list)
 

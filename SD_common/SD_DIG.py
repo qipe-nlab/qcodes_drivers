@@ -16,9 +16,9 @@ from .SD_Module import SD_Module, check_error
 class SD_DIG_CHANNEL(InstrumentChannel):
     parent: SD_DIG
 
-    def __init__(self, parent: SD_DIG, name: str, **kwargs):
+    def __init__(self, parent: SD_DIG, name: str, channel: int, **kwargs):
         super().__init__(parent, name, **kwargs)
-        self.channel = int(name)
+        self.channel = channel
 
         # for channelInputConfig
         self.half_range_hz = Parameter(
@@ -314,7 +314,7 @@ class SD_DIG(SD_Module):
 
         self.SD_AIN: keysightSD1.SD_AIN = self.SD_module
 
-        channels = (SD_DIG_CHANNEL(parent=self, name=f'ch{i+1}') for i in range(self.num_channels))
+        channels = [SD_DIG_CHANNEL(parent=self, name=f'ch{i+1}', channel=i+1) for i in range(self.num_channels)]
         channel_list = ChannelList(parent=self, name='channels', chan_type=SD_DIG_CHANNEL, chan_list=channels)
         self.add_submodule('channels', channel_list)
 
