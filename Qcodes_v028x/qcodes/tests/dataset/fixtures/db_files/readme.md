@@ -1,1 +1,0 @@
-Test database fixtures generated using https://github.com/qcodes/qcodes_generate_test_db
