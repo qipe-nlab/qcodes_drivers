@@ -158,9 +158,7 @@ class SD_DIG_CHANNEL(InstrumentChannel):
             initial_cache_value=10000,
             set_cmd=None)
 
-        self.add_function('read',
-            call_cmd=self.read,
-            docstring='read the acquired data, blocking until the configured amount of data is acquired or when the configured timeout elapses; returns: np.ndarray, dtype=np.int16, shape=(cycles, points_per_cycle)')
+        # add_function enables calling the function on all channels like dig.channels.start()
         self.add_function('start',
             call_cmd=self.start,
             docstring='start receiving triggers and acquiring data; the start time is NOT synchronized across channels, for that use start_multiple()')
@@ -265,6 +263,10 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         check_error(r, f'DAQanalogTriggerConfig({self.channel}, {source_channel})')
 
     def read(self) -> np.ndarray:
+        """Read the acquired data, blocking until the configured amount of data is acquired or when the configured timeout elapses.
+        returns:
+            np.ndarray, dtype=np.int16, shape=(cycles, points_per_cycle)
+        """
         timeout = self.timeout()
         assert timeout > 0
         num_points = self.cycles() * self.points_per_cycle()
@@ -341,11 +343,6 @@ class SD_DIG(SD_Module):
             get_cmd=self.get_trigger_value,
             set_cmd=self.set_trigger_value)
 
-        self.add_function('start_multiple',
-            call_cmd=self.start_multiple,
-            args=(SequenceValidator(Bool(), length=self.num_channels),),
-            docstring='start receiving triggers and acquiring data; arg = list of booleans, which channels to start')
-
     def set_trigger_port_direction(self, value: str):
         direction = {'in': 1, 'out': 0}[value]
         r = self.SD_AIN.triggerIOconfig(direction)
@@ -362,6 +359,10 @@ class SD_DIG(SD_Module):
         return {0: False, 1: True}[r]
 
     def start_multiple(self, channel_mask: Sequence[bool]):
+        """Start receiving triggers and acquiring data.
+        args:
+            channel_mask = list of booleans, which channels to start
+        """
         mask = sum(2**i for i in range(self.num_channels) if channel_mask[i])
         r = self.SD_AIN.DAQstartMultiple(mask)
         check_error(r, f'DAQstartMultiple({mask})')

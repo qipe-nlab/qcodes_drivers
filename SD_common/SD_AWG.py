@@ -15,7 +15,7 @@ from .keysightSD1 import SD_Wave
 from .SD_Module import SD_Module, check_error
 
 
-def new_waveform(data: np.ndarray) -> SD_Wave:
+def new_waveform(data: np.ndarray, suppress_nonzero_warning=False) -> SD_Wave:
     """Create an SD_Wave object from a 1D numpy array in volts with dtype=float64.
     The last value in the waveform must be zero because the AWG will keep
     outputting that value until the next waveform is played.
@@ -28,7 +28,7 @@ def new_waveform(data: np.ndarray) -> SD_Wave:
         raise Exception('waveform must be a 1D numpy array with dtype=float64')
     if len(data) % 10 != 0 or len(data) < 20:
         raise Exception('waveform length must be a multiple of 10 and >= 20')
-    if data[-1] != 0:
+    if data[-1] != 0 and not suppress_nonzero_warning:
         raise Exception('the last value in the waveform must be zero because '
                         'the AWG will keep outputting that value until the '
                         'next waveform is played')
@@ -113,6 +113,7 @@ class SD_AWG_CHANNEL(InstrumentChannel):
             docstring='all waveforms must be already queued',
             set_cmd=self.set_cyclic)
 
+        # add_function enables calling the function on all channels like awg.channels.flush_queue()
         self.add_function('flush_queue',
             call_cmd=self.flush_queue,
             docstring='waveforms are not removed from the module onboard RAM')
@@ -122,9 +123,6 @@ class SD_AWG_CHANNEL(InstrumentChannel):
         self.add_function('stop',
             call_cmd=self.stop,
             docstring='set the output to zero, reset the queue to its initial position, and ignore all following incoming triggers')
-        self.add_function('is_running',
-            call_cmd=self.is_running,
-            docstring='returns True or False')
 
     def set_dc_offset(self, offset: float):
         r = self.parent.awg.channelOffset(self.channel, offset)
@@ -245,22 +243,6 @@ class SD_AWG(SD_Module):
             get_cmd=self.get_trigger_value,
             set_cmd=self.set_trigger_value)
 
-        self.add_function('load_waveform',
-            call_cmd=self.load_waveform,
-            args=(Arrays(valid_types=(np.float64,)), Ints(min_value=0)),
-            docstring='load a waveform into the module onboard RAM; args: data = 1D numpy array in volts with dtype=float64; waverform_id = non-negative int; returns: available onboard RAM in waveform points')
-        self.add_function('reload_waveform',
-            call_cmd=self.reload_waveform,
-            args=(Arrays(valid_types=(np.float64,)), Ints(min_value=0)),
-            docstring='replace a waveform located in the module onboard RAM; the size of the new waveform must be smaller than or equal to the existing waveform; args: data = 1D numpy array in volts with dtype=float64; waverform_id = non-negative int; returns: available onboard RAM in waveform points')
-        self.add_function('flush_waveform',
-            call_cmd=self.flush_waveform,
-            docstring='Delete all waveforms from the module onboard RAM and flush all the AWG queues.')
-        self.add_function('start_multiple',
-            call_cmd=self.start_multiple,
-            args=(SequenceValidator(Bool(), length=self.num_channels),),
-            docstring='start from the beginning of the queues; arg = list of booleans, which channels to start')
-
     def set_trigger_port_direction(self, value: str):
         direction = {'in': 1, 'out': 0}[value]
         r = self.awg.triggerIOconfig(direction)
@@ -276,16 +258,33 @@ class SD_AWG(SD_Module):
         check_error(r, 'triggerIOread()')
         return {0: False, 1: True}[r]
     
-    def load_waveform(self, data: np.ndarray, waveform_id: int) -> int:
-        waveform_object = new_waveform(data)
+    def load_waveform(self, data: np.ndarray, waveform_id: int,
+                      suppress_nonzero_warning=False) -> int:
+        """Load a waveform into the module onboard RAM.
+        args:
+            data = 1D numpy array in volts with dtype=float64
+            waverform_id = non-negative int
+        returns:
+            available onboard RAM in waveform points
+        """
+        waveform_object = new_waveform(data, suppress_nonzero_warning)
         # Lock to avoid concurrent access of waveformLoad()/waveformReLoad()
         with self._lock:
             r = self.awg.waveformLoad(waveform_object, waveform_id)
         check_error(r, f'waveformLoad(waveform_object, {waveform_id})')
         return r
 
-    def reload_waveform(self, data: np.ndarray, waveform_id: int) -> int:
-        waveform_object = new_waveform(data)
+    def reload_waveform(self, data: np.ndarray, waveform_id: int,
+                        suppress_nonzero_warning=False) -> int:
+        """Replace a waveform located in the module onboard RAM.
+        The size of the new waveform must be smaller than or equal to the existing waveform.
+        args:
+            data = 1D numpy array in volts with dtype=float64
+            waverform_id = non-negative int
+        returns:
+            available onboard RAM in waveform points
+        """
+        waveform_object = new_waveform(data, suppress_nonzero_warning)
         padding_mode = 0
         # Lock to avoid concurrent access of waveformLoad()/waveformReLoad()
         with self._lock:
@@ -294,13 +293,17 @@ class SD_AWG(SD_Module):
         return r
 
     def flush_waveform(self):
-        """delete all waveforms from the module onboard RAM and flush all the AWG queues"""
+        """Delete all waveforms from the module onboard RAM and flush all the AWG queues."""
         # Lock to avoid concurrent access of waveformLoad()/waveformReLoad()
         with self._lock:
             r = self.awg.waveformFlush()
         check_error(r, 'waveformFlush()')
 
     def start_multiple(self, channel_mask: Sequence[bool]):
+        """Start from the beginning of the queues.
+        args:
+            channel_mask = list of booleans, which channels to start
+        """
         mask = sum(2**i for i in range(self.num_channels) if channel_mask[i])
         r = self.awg.AWGstartMultiple(mask)
         check_error(r, f'AWGstartMultiple({mask})')
