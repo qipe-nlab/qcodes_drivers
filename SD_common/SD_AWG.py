@@ -17,8 +17,8 @@ from .SD_Module import SD_Module, check_error
 
 def new_waveform(data: np.ndarray) -> SD_Wave:
     """Create an SD_Wave object from a 1D numpy array in volts with dtype=float64.
-    The last value in the waveform should be zero in most cases, because the AWG
-    will keep outputting that value until the next cycle/waveform is played.
+    The last value in the waveform must be zero because the AWG will keep
+    outputting that value until the next waveform is played.
     The voltages must be between -1.5 V and 1.5 V.
     The output will clip when waveform + dc_offset is outside the +-1.5 V range.
     The length of the array must be a multiple of 10 and >= 20.
@@ -29,9 +29,9 @@ def new_waveform(data: np.ndarray) -> SD_Wave:
     if len(data) % 10 != 0 or len(data) < 20:
         raise Exception('waveform length must be a multiple of 10 and >= 20')
     if data[-1] != 0:
-        warn('The last value in the waveform is not zero. The AWG will keep '
-             'outputting that value until the next cycle/waveform is played. '
-             'This is undesirable in most cases.')
+        raise Exception('the last value in the waveform must be zero because '
+                        'the AWG will keep outputting that value until the '
+                        'next waveform is played')
     sd_wave = SD_Wave()
     waveform_type = keysightSD1.SD_WaveformTypes.WAVE_ANALOG
     r = sd_wave.newFromArrayDouble(waveform_type, data / 1.5)
