@@ -161,7 +161,7 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         # add_function enables calling the function on all channels like dig.channels.start()
         self.add_function('start',
             call_cmd=self.start,
-            docstring='start receiving triggers and acquiring data; the start time is NOT synchronized across channels, for that use start_multiple()')
+            docstring='start receiving triggers and acquiring data; the start time is NOT synchronized across channels')
         self.add_function('stop',
             call_cmd=self.stop,
             docstring='stop acquiring data')
@@ -357,12 +357,3 @@ class SD_DIG(SD_Module):
         r = self.SD_AIN.triggerIOread()
         check_error(r, 'triggerIOread()')
         return {0: False, 1: True}[r]
-
-    def start_multiple(self, channel_mask: Sequence[bool]):
-        """Start receiving triggers and acquiring data.
-        args:
-            channel_mask = list of booleans, which channels to start
-        """
-        mask = sum(2**i for i in range(self.num_channels) if channel_mask[i])
-        r = self.SD_AIN.DAQstartMultiple(mask)
-        check_error(r, f'DAQstartMultiple({mask})')

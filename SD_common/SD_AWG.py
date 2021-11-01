@@ -119,7 +119,7 @@ class SD_AWG_CHANNEL(InstrumentChannel):
             docstring='waveforms are not removed from the module onboard RAM')
         self.add_function('start',
             call_cmd=self.start,
-            docstring='start from the beginning of the queue')
+            docstring='start from the beginning of the queue; the start time is NOT synchronized across channels')
         self.add_function('stop',
             call_cmd=self.stop,
             docstring='set the output to zero, reset the queue to its initial position, and ignore all following incoming triggers')
@@ -298,12 +298,3 @@ class SD_AWG(SD_Module):
         with self._lock:
             r = self.awg.waveformFlush()
         check_error(r, 'waveformFlush()')
-
-    def start_multiple(self, channel_mask: Sequence[bool]):
-        """Start from the beginning of the queues.
-        args:
-            channel_mask = list of booleans, which channels to start
-        """
-        mask = sum(2**i for i in range(self.num_channels) if channel_mask[i])
-        r = self.awg.AWGstartMultiple(mask)
-        check_error(r, f'AWGstartMultiple({mask})')
