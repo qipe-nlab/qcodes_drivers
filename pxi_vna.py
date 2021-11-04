@@ -45,7 +45,6 @@ class PxiVnaTrace(ParameterWithSetpoints):
         self.instrument.output(True)
         self.instrument.run_sweep()
         self.instrument.output(False)
-        self.instrument.select_trace(1)
         self.instrument.format("real")
         real = self.instrument.read_data()
         self.instrument.format("imag")
@@ -123,15 +122,16 @@ class PxiVna(VisaInstrument):
         self.add_submodule("ports", ports)
 
         # "S11", "S21", etc.
+        s_parameters = [
+            f"S{i+1}{j+1}" for i in range(num_ports) for j in range(num_ports)
+        ]
         self.s_parameter = Parameter(
             name="s_parameter",
             instrument=self,
             get_cmd="CALC:MEAS1:PAR?",
             get_parser=lambda s: s[1:-1],  # remove enclosing quotes
             set_cmd="CALC:MEAS1:PAR {}",
-            vals=Enum(
-                f"S{i+1}{j+1}" for i in range(num_ports) for j in range(num_ports)
-            ),
+            vals=Enum(*s_parameters),
         )
 
         self.sweep_type = Parameter(
@@ -391,7 +391,7 @@ class PxiVna(VisaInstrument):
         )
 
     def run_sweep(self):
-        if self.averages_enabled():
+        if self.average():
             self.group_trigger_count(self.averages())
             self.sweep_mode("group")
         else:
