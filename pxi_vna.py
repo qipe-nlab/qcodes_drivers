@@ -126,9 +126,9 @@ class PxiVna(VisaInstrument):
         self.s_parameter = Parameter(
             name="s_parameter",
             instrument=self,
-            get_cmd="CALC:MEAS:PAR?",
+            get_cmd="CALC:MEAS1:PAR?",
             get_parser=lambda s: s[1:-1],  # remove enclosing quotes
-            set_cmd="CALC:MEAS:PAR {}",
+            set_cmd="CALC:MEAS1:PAR {}",
             vals=Enum(
                 f"S{i+1}{j+1}" for i in range(num_ports) for j in range(num_ports)
             ),
@@ -332,9 +332,9 @@ class PxiVna(VisaInstrument):
         self.electrical_delay = Parameter(
             name="electrical_delay",
             instrument=self,
-            get_cmd="CALC:CORR:EDEL?",
+            get_cmd="CALC:PAR:MNUM 1,fast;:CALC:CORR:EDEL?",
             get_parser=float,
-            set_cmd="CALC:CORR:EDEL {:f}",
+            set_cmd="CALC:PAR:MNUM 1,fast;:CALC:CORR:EDEL {:f}",
             unit="s",
             vals=Numbers(-10, 10),
         )
@@ -375,18 +375,11 @@ class PxiVna(VisaInstrument):
             vals=Ints(1, 2000000),
         )
 
-        self.select_trace = Parameter(
-            name="select_trace",
-            instrument=self,
-            get_cmd="CALC:PAR:MNUM?",
-            set_cmd="CALC:PAR:MNUM {:d},fast",
-            vals=Ints(min_value=1),
-        )
         self.format = Parameter(
             name="format",
             instrument=self,
-            get_cmd="CALC:MEAS:FORM?",
-            set_cmd="CALC:MEAS:FORM {}",
+            get_cmd="CALC:MEAS1:FORM?",
+            set_cmd="CALC:MEAS1:FORM {}",
             val_mapping={
                 "linear magnitude": "MLIN",
                 "log magnitude": "MLOG",
@@ -417,6 +410,6 @@ class PxiVna(VisaInstrument):
 
     def read_data(self) -> np.ndarray:
         data = self.visa_handle.query_binary_values(
-            "CALC:DATA? FDATA", datatype="d", is_big_endian=True
+            "CALC:PAR:MNUM 1,fast;:CALC:DATA? FDATA", datatype="d", is_big_endian=True
         )
         return np.array(data)
