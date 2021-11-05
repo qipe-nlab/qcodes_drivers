@@ -70,7 +70,7 @@ class PxiVnaPort(InstrumentChannel):
             instrument=self,
             get_cmd=f"SOUR:POW{port}?",
             get_parser=float,
-            set_cmd=f"SOUR:POW{port} {{:.2f}}",
+            set_cmd=f"SOUR:POW{port} {{}}",
             unit="dBm",
             vals=Numbers(min_power, max_power),
         )
@@ -148,7 +148,7 @@ class PxiVna(VisaInstrument):
             instrument=self,
             get_cmd="SENS:SWE:POIN?",
             get_parser=int,
-            set_cmd="SENS:SWE:POIN {:d}",
+            set_cmd="SENS:SWE:POIN {}",
             unit="",
             vals=Ints(1, 100003),
         )
@@ -159,7 +159,7 @@ class PxiVna(VisaInstrument):
             instrument=self,
             get_cmd="SENS:FREQ?",
             get_parser=float,
-            set_cmd="SENS:FREQ {:f}",
+            set_cmd="SENS:FREQ {}",
             unit="Hz",
             vals=Numbers(min_freq, max_freq),
         )
@@ -170,7 +170,7 @@ class PxiVna(VisaInstrument):
             instrument=self,
             get_cmd="SENS:FREQ:STAR?",
             get_parser=float,
-            set_cmd="SENS:FREQ:STAR {:f}",
+            set_cmd="SENS:FREQ:STAR {}",
             unit="Hz",
             vals=Numbers(min_freq, max_freq),
         )
@@ -179,7 +179,7 @@ class PxiVna(VisaInstrument):
             instrument=self,
             get_cmd="SENS:FREQ:STOP?",
             get_parser=float,
-            set_cmd="SENS:FREQ:STOP {:f}",
+            set_cmd="SENS:FREQ:STOP {}",
             unit="Hz",
             vals=Numbers(min_freq, max_freq),
         )
@@ -188,7 +188,7 @@ class PxiVna(VisaInstrument):
             instrument=self,
             get_cmd="SENS:FREQ:CENT?",
             get_parser=float,
-            set_cmd="SENS:FREQ:CENT {:f}",
+            set_cmd="SENS:FREQ:CENT {}",
             unit="Hz",
             vals=Numbers(min_freq, max_freq),
         )
@@ -197,7 +197,7 @@ class PxiVna(VisaInstrument):
             instrument=self,
             get_cmd="SENS:FREQ:SPAN?",
             get_parser=float,
-            set_cmd="SENS:FREQ:SPAN {:f}",
+            set_cmd="SENS:FREQ:SPAN {}",
             unit="Hz",
             vals=Numbers(70, max_freq - min_freq),
         )
@@ -225,7 +225,7 @@ class PxiVna(VisaInstrument):
             instrument=self,
             get_cmd="SOUR:POW:STAR?",
             get_parser=float,
-            set_cmd="SOUR:POW:STAR {:.2f}",
+            set_cmd="SOUR:POW:STAR {}",
             unit="dBm",
             vals=Numbers(min_power, max_power),
         )
@@ -234,7 +234,7 @@ class PxiVna(VisaInstrument):
             instrument=self,
             get_cmd="SOUR:POW:STOP?",
             get_parser=float,
-            set_cmd="SOUR:POW:STOP {:.2f}",
+            set_cmd="SOUR:POW:STOP {}",
             unit="dBm",
             vals=Numbers(min_power, max_power),
         )
@@ -243,7 +243,7 @@ class PxiVna(VisaInstrument):
             instrument=self,
             get_cmd="SOUR:POW:CENT?",
             get_parser=float,
-            set_cmd="SOUR:POW:CENT {:.2f}",
+            set_cmd="SOUR:POW:CENT {}",
             unit="dBm",
             vals=Numbers(min_power, max_power),
         )
@@ -252,7 +252,7 @@ class PxiVna(VisaInstrument):
             instrument=self,
             get_cmd="SOUR:POW:SPAN?",
             get_parser=float,
-            set_cmd="SOUR:POW:SPAN {:.2f}",
+            set_cmd="SOUR:POW:SPAN {}",
             unit="dBm",
             vals=Numbers(0, max_power - min_power),
         )
@@ -280,6 +280,7 @@ class PxiVna(VisaInstrument):
             instrument=self,
             get_cmd="SENS:SWE:TIME?",
             get_parser=float,
+            set_cmd="SENS:SWE:TIME {}",
             unit="s",
             vals=Numbers(min_value=0, max_value=86400),
         )
@@ -308,7 +309,7 @@ class PxiVna(VisaInstrument):
             instrument=self,
             get_cmd="SENS:BAND?",
             get_parser=float,
-            set_cmd="SENS:BAND {:.0f}",
+            set_cmd="SENS:BAND {}",
             unit="Hz",
             vals=Numbers(1, 15e6),
         )
@@ -324,7 +325,7 @@ class PxiVna(VisaInstrument):
             instrument=self,
             get_cmd="SENS:AVER:COUN?",
             get_parser=int,
-            set_cmd="SENS:AVER:COUN {:d}",
+            set_cmd="SENS:AVER:COUN {}",
             unit="",
             vals=Ints(1, 65536),
         )
@@ -332,9 +333,9 @@ class PxiVna(VisaInstrument):
         self.electrical_delay = Parameter(
             name="electrical_delay",
             instrument=self,
-            get_cmd="CALC:PAR:MNUM 1,fast;:CALC:CORR:EDEL?",
+            get_cmd="CALC:MEAS1:CORR:EDEL?",
             get_parser=float,
-            set_cmd="CALC:PAR:MNUM 1,fast;:CALC:CORR:EDEL {:f}",
+            set_cmd="CALC:MEAS1:CORR:EDEL {}",
             unit="s",
             vals=Numbers(-10, 10),
         )
@@ -371,7 +372,7 @@ class PxiVna(VisaInstrument):
             instrument=self,
             get_cmd="SENS:SWE:GRO:COUN?",
             get_parser=int,
-            set_cmd="SENS:SWE:GRO:COUN {:d}",
+            set_cmd="SENS:SWE:GRO:COUN {}",
             vals=Ints(1, 2000000),
         )
 
@@ -410,6 +411,6 @@ class PxiVna(VisaInstrument):
 
     def read_data(self) -> np.ndarray:
         data = self.visa_handle.query_binary_values(
-            "CALC:PAR:MNUM 1,fast;:CALC:DATA? FDATA", datatype="d", is_big_endian=True
+            "CALC:MEAS1:DATA:FDATA?", datatype="d", is_big_endian=True
         )
         return np.array(data)
