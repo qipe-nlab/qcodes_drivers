@@ -355,6 +355,21 @@ class PxiVna(VisaInstrument):
             set_cmd="TRIG:SOUR {}",
             val_mapping={"external": "EXT", "immediate": "IMM", "manual": "MAN"},
         )
+        self.trigger_scope = Parameter(
+            name="trigger_scope",
+            instrument=self,
+            get_cmd="TRIG:SCOP?",
+            set_cmd="TRIG:SCOP {}",
+            val_mapping={"all": "ALL", "current": "CURR", "active": "ACT"},
+        )
+        self.trigger_mode = Parameter(
+            name="trigger_mode",
+            instrument=self,
+            get_cmd="SENS:SWE:TRIG:MODE?",
+            set_cmd="SENS:SWE:TRIG:MODE {}",
+            val_mapping={"channel": "CHAN", "sweep": "SWE", "point": "POIN", "trace": "TRAC"},
+            docstring="setting trigger_mode = sweep or point forces trigger_scope = current",
+        )
         self.sweep_mode = Parameter(
             name="sweep_mode",
             instrument=self,
@@ -374,6 +389,70 @@ class PxiVna(VisaInstrument):
             get_parser=int,
             set_cmd="SENS:SWE:GRO:COUN {}",
             vals=Ints(1, 2000000),
+        )
+
+        # meas trigger input
+        self.meas_trigger_input_delay = Parameter(
+            name="meas_trigger_input_delay",
+            instrument=self,
+            get_cmd="TRIG:DEL?",
+            set_cmd="TRIG:DEL {}",
+            unit="s",
+            vals=Numbers(0, 3),
+            docstring='set trigger_source = "external" before setting this parameter',
+        )
+        meas_trigger_input_source_mapping = {f"pxi{n}": f"TRIG{n}" for n in range(8)}
+        meas_trigger_input_source_mapping["ctrl s"] = "CTRL_S"
+        self.meas_trigger_input_source = Parameter(
+            name="meas_trigger_input_source",
+            instrument=self,
+            get_cmd="TRIG:ROUTE:INP?",
+            set_cmd="TRIG:ROUTE:INP {}",
+            val_mapping=meas_trigger_input_source_mapping,
+        )
+        self.meas_trigger_input_type = Parameter(
+            name="meas_trigger_input_type",
+            instrument=self,
+            get_cmd="TRIG:TYPE?",
+            set_cmd="TRIG:TYPE {}",
+            val_mapping={"edge": "EDGE", "level": "LEV"},
+        )
+        self.meas_trigger_input_polarity = Parameter(
+            name="meas_trigger_input_polarity",
+            instrument=self,
+            get_cmd="TRIG:SLOP?",
+            set_cmd="TRIG:SLOP {}",
+            val_mapping={"positive": "POS", "negative": "NEG"},
+        )
+        self.meas_trigger_input_accept_before_armed = Parameter(
+            name="meas_trigger_input_accept_before_armed",
+            instrument=self,
+            get_cmd="CONT:SIGN:TRIG:ATBA?",
+            set_cmd="CONT:SIGN:TRIG:ATBA {}",
+            val_mapping={True: "1", False: "0"},
+        )
+
+        # meas trigger ready
+        self.meas_trigger_ready_pxi_output = Parameter(
+            name="meas_trigger_ready_pxi_output",
+            instrument=self,
+            get_cmd="CONT:SIGN:PXI:RTR?",
+            set_cmd="CONT:SIGN:PXI:RTR {}",
+            val_mapping={True: "1", False: "0"},
+        )
+        self.meas_trigger_ready_pxi_line = Parameter(
+            name="meas_trigger_ready_pxi_line",
+            instrument=self,
+            get_cmd="CONT:SIGN:PXI:RTR:ROUT?",
+            set_cmd="CONT:SIGN:PXI:RTR:ROUT {}",
+            val_mapping={n: f"TRIG{n}" for n in range(8)},
+        )
+        self.meas_trigger_ready_polarity = Parameter(
+            name="meas_trigger_ready_polarity",
+            instrument=self,
+            get_cmd="CONT:SIGN? RDY",
+            set_cmd="CONT:SIGN RDY,{}",
+            val_mapping={"low":"LOW", "high":"HIGH"},
         )
 
         self.format = Parameter(
