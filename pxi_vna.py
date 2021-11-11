@@ -455,6 +455,17 @@ class PxiVna(VisaInstrument):
             val_mapping={"low":"LOW", "high":"HIGH"},
         )
 
+        self.add_function(
+            name="manual_trigger",
+            call_cmd="INIT",
+        )
+        self.trigger_ready = Parameter(
+            name="trigger_ready",
+            instrument=self,
+            get_cmd="TRIG:STAT:READ? ANY",
+            val_mapping={True:'1', False:'0'}
+        )
+
         self.format = Parameter(
             name="format",
             instrument=self,
