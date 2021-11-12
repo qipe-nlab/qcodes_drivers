@@ -150,7 +150,7 @@ class PxiChassis(Instrument):
         )
         if status:
             raise Exception(f"Driver error: {status}")
-        return v.value.decode("utf-8")
+        return v.value.decode()
 
     def _get_vi_bool(self, attr: int, repcap: bytes = b"") -> bool:
         v = ctypes.c_uint16(False)
