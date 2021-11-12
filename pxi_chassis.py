@@ -4,7 +4,15 @@ from typing import Any, Optional
 
 from qcodes import ChannelList, Instrument, InstrumentChannel, Parameter
 
-from .pxi_chassis_defs import *
+KTMPXICHASSIS_ATTR_INSTRUMENT_FIRMWARE_REVISION = 1050510
+KTMPXICHASSIS_ATTR_INSTRUMENT_MANUFACTURER = 1050511
+KTMPXICHASSIS_ATTR_INSTRUMENT_MODEL = 1050512
+KTMPXICHASSIS_ATTR_SYSTEM_SERIAL_NUMBER = 1150003
+KTMPXICHASSIS_ATTR_TRIGGER_PORT_COUNT = 1150054
+KTMPXICHASSIS_ATTR_TRIGGER_PORT_DRIVE_TYPE = 1150055
+KTMPXICHASSIS_ATTR_TRIGGER_PORT_INPUT_DESTINATION = 1150056
+KTMPXICHASSIS_ATTR_TRIGGER_PORT_OUTPUT_SOURCE = 1150057
+KTMPXICHASSIS_ATTR_TRIGGER_PORT_CONNECTED_PXI_TRIGGER_BUS_SEGMENT = 1150069
 
 
 class PxiChassisTriggerPort(InstrumentChannel):
@@ -143,8 +151,8 @@ class PxiChassis(Instrument):
         )
 
     def close(self) -> None:
-        self.trigger_ports.drive_type('input')
-        self.trigger_ports.input_destination('none')
+        self.trigger_ports.drive_type("input")
+        self.trigger_ports.input_destination("none")
         self._dll.KtMPxiChassis_close(self._session)
         super().close()
 
@@ -156,40 +164,6 @@ class PxiChassis(Instrument):
         if status:
             raise Exception(f"Driver error: {status}")
         return v.value.decode()
-
-    def _get_vi_bool(self, attr: int, repcap: bytes = b"") -> bool:
-        v = ctypes.c_uint16(False)
-        status = self._dll.KtMPxiChassis_GetAttributeViBoolean(
-            self._session, repcap, attr, ctypes.byref(v)
-        )
-        if status:
-            raise Exception(f"Driver error: {status}")
-        return bool(v)
-
-    def _set_vi_bool(self, attr: int, value: bool, repcap: bytes = b"") -> None:
-        v = ctypes.c_uint16(value)
-        status = self._dll.KtMPxiChassis_SetAttributeViBoolean(
-            self._session, repcap, attr, v
-        )
-        if status:
-            raise Exception(f"Driver error: {status}")
-
-    def _get_vi_real64(self, attr: int, repcap: bytes = b"") -> float:
-        v = ctypes.c_double(0)
-        status = self._dll.KtMPxiChassis_GetAttributeViReal64(
-            self._session, repcap, attr, ctypes.byref(v)
-        )
-        if status:
-            raise Exception(f"Driver error: {status}")
-        return float(v.value)
-
-    def _set_vi_real64(self, attr: int, value: float, repcap: bytes = b"") -> None:
-        v = ctypes.c_double(value)
-        status = self._dll.KtMPxiChassis_SetAttributeViReal64(
-            self._session, repcap, attr, v
-        )
-        if status:
-            raise Exception(f"Driver error: {status}")
 
     def _get_vi_int(self, attr: int, repcap: bytes = b"") -> int:
         v = ctypes.c_int32(0)
