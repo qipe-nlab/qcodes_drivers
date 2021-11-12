@@ -68,9 +68,37 @@ class PxiTriggerManager(Instrument):
             firmware=self._get_vi_string(KTMTRIG_ATTR_INSTRUMENT_FIRMWARE_REVISION),
         )
 
+    def check_reservation(self, bus_segment: int, trigger_line: int) -> Optional[str]:
+        """Returns the owner's name if the trigger line is reserved, None if not."""
+        assert 1 <= bus_segment <= self.bus_segment_count()
+        assert trigger_line in range(8)
+        reservation_status = ctypes.c_int32(0)
+        source_bus_segment = ctypes.c_int32(0)
+        source_trigger_line = ctypes.c_int32(0)
+        label = ctypes.create_string_buffer(self._default_buf_size)
+        status = self._dll.KtMTrig_PXI9GetLineInformation(
+            self._session,
+            ctypes.c_int32(bus_segment),
+            ctypes.c_int32(trigger_line),
+            ctypes.byref(reservation_status),
+            ctypes.byref(source_bus_segment),
+            ctypes.byref(source_trigger_line),
+            self._default_buf_size,
+            label,
+        )
+        if status:
+            raise Exception(f"Driver error: {status}")
+        if int(reservation_status.value) == 0:  # not reserved
+            return None
+        else:  # reserved
+            return label.value.decode()
+
     def reserve(self, bus_segment: int, trigger_line: int) -> None:
         assert 1 <= bus_segment <= self.bus_segment_count()
         assert trigger_line in range(8)
+        reservation = self.check_reservation(bus_segment, trigger_line)
+        if reservation is not None:
+            raise Exception(f'The trigger line is reserved by {reservation}.')
         status = self._dll.KtMTrig_PXI9SetReservation(
             self._session,
             ctypes.c_int32(bus_segment),
@@ -109,8 +137,8 @@ class PxiTriggerManager(Instrument):
             )
         )
 
-    # USE WITH CAUTION
     def clear_client_with_label(self, label: str):
+        """USE WITH CAUTION!"""
         status = self._dll.KtMTrig_SystemAdministrationClearAllRoutesAndReservationsSingleClient(
             self._session, label.encode()
         )
