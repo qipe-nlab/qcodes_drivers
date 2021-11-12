@@ -1,9 +1,13 @@
+import os
+import sys
 from typing import Any, Callable
 
 from qcodes.instrument.base import Instrument
 from qcodes.instrument.parameter import Parameter
 
-from . import keysightSD1
+sys.path.append('C:\\Program Files (x86)\\Keysight\\SD1\\Libraries\\Python')
+os.add_dll_directory("C:\\Program Files\\Keysight\\SD1\\shared")
+import keysightSD1
 
 # check whether SD1 version 2.x or 3.x
 is_sd1_3x = 'SD_SandBoxRegister' in dir(keysightSD1)

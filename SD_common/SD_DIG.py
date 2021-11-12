@@ -7,10 +7,8 @@ import numpy as np
 from qcodes.instrument.channel import ChannelList, InstrumentChannel
 from qcodes.instrument.parameter import Parameter
 from qcodes.utils.validators import Bool, Enum, Ints, Multiples
-from qcodes.utils.validators import Sequence as SequenceValidator
 
-from . import keysightSD1
-from .SD_Module import SD_Module, check_error
+from .SD_Module import SD_Module, check_error, keysightSD1
 
 
 class SD_DIG_CHANNEL(InstrumentChannel):

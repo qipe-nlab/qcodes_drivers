@@ -1,21 +1,16 @@
 from __future__ import annotations
 
 from threading import RLock
-from typing import Sequence
-from warnings import warn
 
 import numpy as np
 from qcodes.instrument.channel import ChannelList, InstrumentChannel
 from qcodes.instrument.parameter import Parameter
-from qcodes.utils.validators import Arrays, Bool, Enum, Ints, Numbers
-from qcodes.utils.validators import Sequence as SequenceValidator
+from qcodes.utils.validators import Bool, Enum, Ints, Numbers
 
-from . import keysightSD1
-from .keysightSD1 import SD_Wave
-from .SD_Module import SD_Module, check_error
+from .SD_Module import SD_Module, check_error, keysightSD1
 
 
-def new_waveform(data: np.ndarray, suppress_nonzero_warning=False) -> SD_Wave:
+def new_waveform(data: np.ndarray, suppress_nonzero_warning=False) -> keysightSD1.SD_Wave:
     """Create an SD_Wave object from a 1D numpy array in volts with dtype=float64.
     The last value in the waveform must be zero because the AWG will keep
     outputting that value until the next waveform is played.
@@ -32,7 +27,7 @@ def new_waveform(data: np.ndarray, suppress_nonzero_warning=False) -> SD_Wave:
         raise Exception('the last value in the waveform must be zero because '
                         'the AWG will keep outputting that value until the '
                         'next waveform is played')
-    sd_wave = SD_Wave()
+    sd_wave = keysightSD1.SD_Wave()
     waveform_type = keysightSD1.SD_WaveformTypes.WAVE_ANALOG
     r = sd_wave.newFromArrayDouble(waveform_type, data / 1.5)
     check_error(r, f'newFromArrayDouble({waveform_type}, data)')
