@@ -3,7 +3,6 @@ from functools import partial
 from typing import Any, Optional
 
 from qcodes import ChannelList, Instrument, InstrumentChannel, Parameter
-from qcodes.utils.validators import Ints, Numbers
 
 from .pxi_chassis_defs import *
 
@@ -142,6 +141,12 @@ class PxiChassis(Instrument):
                 KTMPXICHASSIS_ATTR_INSTRUMENT_FIRMWARE_REVISION
             ),
         )
+
+    def close(self) -> None:
+        self.trigger_ports.drive_type('input')
+        self.trigger_ports.input_destination('none')
+        self._dll.KtMPxiChassis_close(self._session)
+        super().close()
 
     def _get_vi_string(self, attr: int, repcap: bytes = b"") -> str:
         v = ctypes.create_string_buffer(self._default_buf_size)
