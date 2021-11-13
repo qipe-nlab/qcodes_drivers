@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 from qcodes.instrument.base import Instrument
 from qcodes.instrument.parameter import Parameter
@@ -68,66 +68,29 @@ class SD_Module(Instrument):
         r = self.SD_module.openWithSlot(self.module_name, chassis, slot)
         check_error(r, f'openWithSlot({self.module_name}, {chassis}, {slot})')
 
-        self.product_name = Parameter(
-            name='product_name',
-            instrument=self,
-            get_cmd=self.get_product_name,
-            docstring='The product name of the device')
-        self.serial_number = Parameter(
-            name='serial_number',
-            instrument=self,
-            get_cmd=self.get_serial_number,
-            docstring='The serial number of the device')
         self.chassis_number = Parameter(
             name='chassis_number',
             instrument=self,
-            get_cmd=self.get_chassis,
+            initial_cache_value=chassis,
             docstring='The chassis number where the device is located')
         self.slot_number = Parameter(
             name='slot_number',
             instrument=self,
-            get_cmd=self.get_slot,
+            initial_cache_value=slot,
             docstring='The slot number where the device is located')
-        self.firmware_version = Parameter(
-            name='firmware_version',
-            instrument=self,
-            get_cmd=self.get_firmware_version,
-            docstring='The firmware version of the device')
         self.hardware_version = Parameter(
             name='hardware_version',
             instrument=self,
             get_cmd=self.get_hardware_version,
             docstring='The hardware version of the device')
 
-    def get_product_name(self) -> str:
-        """Returns the product name of the device"""
-        r = self.SD_module.getProductName()
-        check_error(r, 'gerProductName()')
-        return r
-
-    def get_serial_number(self) -> str:
-        """Returns the serial number of the device"""
-        r = self.SD_module.getSerialNumber()
-        check_error(r, 'getSerialNumber()')
-        return r
-
-    def get_chassis(self) -> int:
-        """Returns the chassis number where the device is located"""
-        r = self.SD_module.getChassis()
-        check_error(r, 'getChassis()')
-        return r
-
-    def get_slot(self) -> int:
-        """Returns the slot number where the device is located"""
-        r = self.SD_module.getSlot()
-        check_error(r, 'getSlot()')
-        return r
-
-    def get_firmware_version(self) -> float:
-        """Returns the firmware version of the device"""
-        r = self.SD_module.getFirmwareVersion()
-        check_error(r, 'getFirmwareVersion()')
-        return r
+    def get_idn(self) -> dict[str, Optional[str]]:
+        return dict(
+            vendor="Keysight Technologies",
+            model=self.module_name,
+            serial=self.SD_module.getSerialNumber(),
+            firmware=str(self.SD_module.getFirmwareVersion()),
+        )
 
     def get_hardware_version(self) -> float:
         """Returns the hardware version of the device"""
