@@ -6,32 +6,6 @@ from qcodes.utils.validators import Bool, Multiples
 
 from .SD_common.SD_Module import check_error, keysightSD1
 
-# slot configuration
-# 'Module' means AWG, 'DAQ' means digitizer, '' means other
-module_names = [
-    '',
-    'Module 0',
-    'Module 1',
-    'Module 2',
-    'DAQ 0',
-    '',
-    '',
-    '',
-    '',
-    '',
-]
-
-assert module_names[0] == ''
-assert module_names[1] == 'Module 0'
-
-# number of AWGs
-n_awg = sum(1 for name in module_names if name[:6] == 'Module')
-assert n_awg >= 1
-
-# number of digitizers
-n_dig = sum(1 for name in module_names if name[:3] == 'DAQ')
-assert n_dig <= 2
-
 
 class HVI_Trigger(Instrument):
 
@@ -39,20 +13,21 @@ class HVI_Trigger(Instrument):
         super().__init__(name, **kwargs)
         self.hvi = keysightSD1.SD_HVI()
         self.chassis = chassis
+        self.detect_modules()
 
         # open HVI file
-        hvi_name = 'InternalTrigger_%d_%d.HVI' % (n_awg, n_dig)
+        hvi_name = 'InternalTrigger_%d_%d.HVI' % (self.awg_count, self.dig_count)
         dir_path = os.path.dirname(os.path.realpath(__file__))
         self.hvi.open(os.path.join(dir_path, 'HVI_Delay', hvi_name))
 
         # assign units, run twice to ignore errors before units are set
         for m in range(2):
-            for n, name in enumerate(module_names):
+            for slot, name in zip(self.slot_numbers, self.module_names):
                 if name == '': continue
-                r = self.hvi.assignHardwareWithUserNameAndSlot(name, self.chassis, n + 1)
+                r = self.hvi.assignHardwareWithUserNameAndSlot(name, self.chassis, slot)
                 # only check for errors after second run
                 if m > 0:
-                    check_error(r, f'assignHardwareWithUserNameAndSlot({name}, {self.chassis}, {n + 1})')
+                    check_error(r, f'assignHardwareWithUserNameAndSlot({name}, {self.chassis}, {slot})')
 
         self.recompile = True  # need to re-compile HVI file?
 
@@ -120,15 +95,14 @@ class HVI_Trigger(Instrument):
         digi_wait = self.digitizer_delay() // 10
 
         # special case if only one module: add 240 ns extra delay
-        if (n_awg + n_dig) == 1:
+        if (self.awg_count + self.dig_count) == 1:
             wait += 24
 
         r = self.hvi.writeIntegerConstantWithUserName('Module 0', 'Wait time', wait)
         check_error(r, f"writeIntegerConstantWithUserName('Module 0', 'Wait time', {wait})")
 
-        for n in range(n_dig):
-            r = self.hvi.writeIntegerConstantWithUserName(
-                'DAQ %d' % n, 'Digi wait', digi_wait)
+        for n in range(self.dig_count):
+            r = self.hvi.writeIntegerConstantWithUserName('DAQ %d' % n, 'Digi wait', digi_wait)
             check_error(r, f"writeIntegerConstantWithUserName({'DAQ %d' % n}, 'Digi wait', {digi_wait})")
 
         # need to recompile after setting wait time, not sure why
@@ -146,6 +120,25 @@ class HVI_Trigger(Instrument):
                 n_try -= 1
                 if n_try <= 0:
                     raise
+
+    def detect_modules(self):
+        self.slot_numbers = []
+        self.module_names = []
+        awg_index = 0
+        dig_index = 0
+        for n in range(keysightSD1.SD_Module.moduleCount()):
+            if keysightSD1.SD_Module.getChassisByIndex(n) != self.chassis:
+                continue
+            self.slot_numbers.append(keysightSD1.SD_Module.getSlotByIndex(n))
+            product_name = keysightSD1.SD_Module.getProductNameByIndex(n)
+            if product_name in ('M3201A', 'M3202A', 'M3300A', 'M3302A'):  # AWG
+                self.module_names.append(f'Module {awg_index}')
+                awg_index += 1
+            elif product_name in ('M3100A', 'M3102A'):  # digitizer
+                self.module_names.append(f'DAQ {dig_index}')
+                dig_index += 1
+        self.awg_count = awg_index
+        self.dig_count = dig_index
 
     def close(self):
         self.output(False)
