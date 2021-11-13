@@ -1,19 +1,42 @@
 import os
+from typing import Any
 
 from qcodes.instrument.base import Instrument
 from qcodes.instrument.parameter import Parameter
 from qcodes.utils.validators import Bool, Multiples
 
+from .pxi_trigger_manager import PxiTriggerManager
 from .SD_common.SD_Module import check_error, keysightSD1
 
 
 class HVI_Trigger(Instrument):
 
-    def __init__(self, name: str, chassis: int, **kwargs):
+    def __init__(
+        self,
+        name: str,
+        address: str,  # PXI[interface]::[chassis number]::BACKPLANE
+        **kwargs: Any,
+    ):
         super().__init__(name, **kwargs)
         self.hvi = keysightSD1.SD_HVI()
-        self.chassis = chassis
+        self.chassis = int(address.split('::')[1])
         self.detect_modules()
+        assert self.awg_count >= 1  # there must be at least one AWG
+        assert self.dig_count <= 2  # there must be at most two digitizers
+
+        # reserve and route PXI trigger lines 0, 1, 2
+        # TODO: is this routing always correct? should check using M3601A
+        trigger_manager = PxiTriggerManager('HVI_Trigger', address)
+        self.add_submodule('trigger_manager', trigger_manager)
+        trigger_manager.clear_client_with_label('HVI_Trigger')
+        segment_count = trigger_manager.bus_segment_count()
+        for line in (0, 1):
+            for segment in range(2, segment_count + 1):
+                trigger_manager.reserve(segment, line)
+                trigger_manager.route(segment - 1, segment, line)
+        for segment in range(1, segment_count):
+            trigger_manager.reserve(segment, trigger_line=2)
+            trigger_manager.route(segment + 1, segment, trigger_line=2)
 
         # open HVI file
         hvi_name = 'InternalTrigger_%d_%d.HVI' % (self.awg_count, self.dig_count)
