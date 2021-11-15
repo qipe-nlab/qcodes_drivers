@@ -19,6 +19,7 @@ KTMPXICHASSIS_ATTR_TRIGGER_PORT_CONNECTED_PXI_TRIGGER_BUS_SEGMENT = 1150069
 
 
 class PxiChassisTriggerPort(InstrumentChannel):
+    """Each of the SMB external trigger ports."""
 
     parent: "PxiChassis"
     trigger_manager: PxiTriggerManager
@@ -105,6 +106,10 @@ class PxiChassisTriggerPort(InstrumentChannel):
 
 
 class PxiChassis(Instrument):
+    """For changing the chassis settings like you would in the software front panel.
+    Wraps the IVI-C KtMPxiChassis driver.
+    Currently, only the settings related to the SMB external trigger ports are implemented.
+    """
 
     _default_buf_size = 256
 

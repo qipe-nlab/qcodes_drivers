@@ -13,6 +13,7 @@ KTMTRIG_ATTR_SYSTEM_SEGMENT_COUNT = 1150005
 
 class PxiTriggerManager(Instrument):
     """For reserving and routing PXI trigger lines.
+    Wraps the IVI-C KtMTrig driver.
     The reservations and routes will show up in Keysight Connection Expert.
     """
 
