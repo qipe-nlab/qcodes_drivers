@@ -66,7 +66,7 @@ class SD_AWG_CHANNEL(InstrumentChannel):
             vals=Numbers(-1.5, 1.5),
             initial_value=0,
             docstring='in volts, must be between -1.5 and 1.5',
-            set_cmd=self.set_dc_offset)
+            set_cmd=self._set_dc_offset)
 
         # for AWGtriggerExternalConfig
         self.trigger_source = Parameter(
@@ -75,29 +75,29 @@ class SD_AWG_CHANNEL(InstrumentChannel):
             vals=Enum('external', 'pxi'),
             initial_cache_value='external',
             docstring="'external' or 'pxi'",
-            set_cmd=self.set_trigger_source)
+            set_cmd=self._set_trigger_source)
         self.pxi_trigger_number = Parameter(
             name='pxi_trigger_number',
             instrument=self,
             vals=Ints(0, self.parent.num_triggers - 1),
             initial_cache_value=0,
             docstring=f'0, 1, ..., {self.parent.num_triggers - 1}',
-            set_cmd=self.set_pxi_trigger_number)
+            set_cmd=self._set_pxi_trigger_number)
         self.trigger_behavior = Parameter(
             name='trigger_behavior',
             instrument=self,
             vals=Enum('high', 'low', 'rise', 'fall'),
             initial_cache_value='rise',
             docstring="'high', 'low', 'rise', or 'fall'",
-            set_cmd=self.set_trigger_behavior)
+            set_cmd=self._set_trigger_behavior)
         self.trigger_sync_clk10 = Parameter(
             name='trigger_sync_clk10',
             instrument=self,
             vals=Bool(),
             initial_cache_value=False,
             docstring="sync to 10 MHz chassis clock",
-            set_cmd=self.set_trigger_sync_clk10)
-        self.write_AWGtriggerExternalConfig()  # configure the digitizer with the initial values
+            set_cmd=self._set_trigger_sync_clk10)
+        self._write_AWGtriggerExternalConfig()  # configure the digitizer with the initial values
 
         # for AWGqueueConfig
         self.cyclic = Parameter(
@@ -106,7 +106,7 @@ class SD_AWG_CHANNEL(InstrumentChannel):
             vals=Bool(),
             initial_value=False,
             docstring='all waveforms must be already queued',
-            set_cmd=self.set_cyclic)
+            set_cmd=self._set_cyclic)
 
         # add_function enables calling the function on all channels like awg.channels.flush_queue()
         self.add_function('flush_queue',
@@ -119,34 +119,34 @@ class SD_AWG_CHANNEL(InstrumentChannel):
             call_cmd=self.stop,
             docstring='set the output to zero, reset the queue to its initial position, and ignore all following incoming triggers')
 
-    def set_dc_offset(self, offset: float):
+    def _set_dc_offset(self, offset: float):
         r = self.parent.awg.channelOffset(self.channel, offset)
         check_error(r, f'channelOffset({self.channel}, {offset})')
 
-    def write_AWGtriggerExternalConfig(self):
+    def _write_AWGtriggerExternalConfig(self):
         source = {'external': 0, 'pxi': 4000 + self.pxi_trigger_number()}[self.trigger_source()]
         behavior = {'high': 1, 'low': 2, 'rise': 3, 'fall': 4}[self.trigger_behavior()]
         sync = {False: 0, True: 1}[self.trigger_sync_clk10()]
         r = self.parent.awg.AWGtriggerExternalConfig(self.channel, source, behavior, sync)
         check_error(r, f'AWGtriggerExternalConfig({self.channel}, {source}, {behavior}, {sync})')
 
-    def set_trigger_source(self, value: str):
+    def _set_trigger_source(self, value: str):
         self.trigger_source.cache.set(value)
-        self.write_AWGtriggerExternalConfig()
+        self._write_AWGtriggerExternalConfig()
 
-    def set_pxi_trigger_number(self, value: int):
+    def _set_pxi_trigger_number(self, value: int):
         self.pxi_trigger_number.cache.set(value)
-        self.write_AWGtriggerExternalConfig()
+        self._write_AWGtriggerExternalConfig()
 
-    def set_trigger_behavior(self, value: str):
+    def _set_trigger_behavior(self, value: str):
         self.trigger_behavior.cache.set(value)
-        self.write_AWGtriggerExternalConfig()
+        self._write_AWGtriggerExternalConfig()
 
-    def set_trigger_sync_clk10(self, value: bool):
+    def _set_trigger_sync_clk10(self, value: bool):
         self.trigger_sync_clk10.cache.set(value)
-        self.write_AWGtriggerExternalConfig()
+        self._write_AWGtriggerExternalConfig()
 
-    def set_cyclic(self, value: bool):
+    def _set_cyclic(self, value: bool):
         cyclic = {False: 0, True: 1}[value]
         r = self.parent.awg.AWGqueueConfig(self.channel, cyclic)
         check_error(r, f'AWGqueueConfig({self.channel}, {cyclic})')
@@ -226,7 +226,7 @@ class SD_AWG(SD_Module):
             vals=Enum('in', 'out'),
             initial_value='in',
             docstring="'in' or 'out'",
-            set_cmd=self.set_trigger_port_direction)
+            set_cmd=self._set_trigger_port_direction)
         
         # for triggerIOread and triggerIOwrite
         self.trigger_value = Parameter(
@@ -235,20 +235,20 @@ class SD_AWG(SD_Module):
             vals=Bool(),
             initial_value=False,
             docstring="False: 0 V, True: 3.3 V (TTL)",
-            get_cmd=self.get_trigger_value,
-            set_cmd=self.set_trigger_value)
+            get_cmd=self._get_trigger_value,
+            set_cmd=self._set_trigger_value)
 
-    def set_trigger_port_direction(self, value: str):
+    def _set_trigger_port_direction(self, value: str):
         direction = {'in': 1, 'out': 0}[value]
         r = self.awg.triggerIOconfig(direction)
         check_error(r, f'triggerIOconfig({direction})')
 
-    def set_trigger_value(self, value: bool):
+    def _set_trigger_value(self, value: bool):
         output = {False: 0, True: 1}[value]
         r = self.awg.triggerIOwrite(output)
         check_error(r, f'triggerIOwrite({output})')
 
-    def get_trigger_value(self) -> bool:
+    def _get_trigger_value(self) -> bool:
         r = self.awg.triggerIOread()
         check_error(r, 'triggerIOread()')
         return {0: False, 1: True}[r]

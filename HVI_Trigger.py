@@ -27,7 +27,7 @@ class HVI_Trigger(Instrument):
         super().__init__(name, **kwargs)
         self.hvi = keysightSD1.SD_HVI()
         self.chassis = int(address.split('::')[1])
-        self.detect_modules()
+        self._detect_modules()
         assert self.awg_count >= 1  # there must be at least one AWG
         assert self.dig_count <= 2  # there must be at most two digitizers
 
@@ -76,7 +76,7 @@ class HVI_Trigger(Instrument):
             vals=Multiples(10, min_value=800),
             initial_cache_value=100000,
             docstring='in steps of 10 ns',
-            set_cmd=self.set_trigger_period)
+            set_cmd=self._set_trigger_period)
         self.digitizer_delay = Parameter(
             name='digitizer_delay',
             instrument=self,
@@ -85,7 +85,7 @@ class HVI_Trigger(Instrument):
             vals=Multiples(10, min_value=0),
             initial_cache_value=0,
             docstring='extra delay before triggering digitizers, in steps of 10 ns',
-            set_cmd=self.set_digitizer_delay)
+            set_cmd=self._set_digitizer_delay)
         self.output = Parameter(
             name='output',
             instrument=self,
@@ -93,38 +93,38 @@ class HVI_Trigger(Instrument):
             vals=Bool(),
             initial_value=False,
             docstring='use software/HVI trigger on the AWG/digitizer channels',
-            set_cmd=self.set_output)
+            set_cmd=self._set_output)
 
-    def set_trigger_period(self, trigger_period: int):
+    def _set_trigger_period(self, trigger_period: int):
         if trigger_period != self.trigger_period.cache():  # if the value changed
             if self.output():  # if the output is ON, recompile and restart
                 self.trigger_period.cache.set(trigger_period)
-                self.compile_hvi()
+                self._compile_hvi()
                 r = self.hvi.start()
                 check_error(r, 'start()')
             else:  # if the output is OFF, recompile later
                 self.recompile = True
 
-    def set_digitizer_delay(self, digitizer_delay: int):
+    def _set_digitizer_delay(self, digitizer_delay: int):
         if digitizer_delay != self.digitizer_delay.cache():  # if the value changed
             if self.output():  # if the output is ON, recompile and restart
                 self.trigger_period.cache.set(digitizer_delay)
-                self.compile_hvi()
+                self._compile_hvi()
                 r = self.hvi.start()
                 check_error(r, 'start()')
             else:  # if the output is OFF, recompile later
                 self.recompile = True
 
-    def set_output(self, output: bool):
+    def _set_output(self, output: bool):
         if output:
             if self.recompile:
-                self.compile_hvi()
+                self._compile_hvi()
             r = self.hvi.start()
             check_error(r, 'start()')
         else:
             self.hvi.stop()
 
-    def compile_hvi(self):
+    def _compile_hvi(self):
         """HVI file needs to be re-compiled after trigger_period or digitizer_delay is changed"""
         self.recompile = False
 
@@ -158,7 +158,7 @@ class HVI_Trigger(Instrument):
                 if n_try <= 0:
                     raise
 
-    def detect_modules(self):
+    def _detect_modules(self):
         self.slot_numbers = []
         self.module_names = []
         awg_index = 0

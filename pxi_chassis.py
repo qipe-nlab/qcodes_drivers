@@ -76,7 +76,7 @@ class PxiChassisTriggerPort(InstrumentChannel):
                 KTMPXICHASSIS_ATTR_TRIGGER_PORT_INPUT_DESTINATION,
                 repcap=id,
             ),
-            set_cmd=self.set_input_destination,
+            set_cmd=self._set_input_destination,
             val_mapping=trigger_line_mapping,
         )
         self.output_source = Parameter(
@@ -95,7 +95,7 @@ class PxiChassisTriggerPort(InstrumentChannel):
             val_mapping=trigger_line_mapping,
         )
 
-    def set_input_destination(self, trigger_line_code: int):
+    def _set_input_destination(self, trigger_line_code: int):
         line = self.trigger_line_mapping_inverse(trigger_line_code)
         if line != "none":
             segment = self.connected_bus_segment()

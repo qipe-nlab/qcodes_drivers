@@ -26,7 +26,7 @@ class SD_DIG_CHANNEL(InstrumentChannel):
             vals=Enum(*self.parent.half_ranges_hz),
             initial_cache_value=self.parent.half_ranges_hz[-1],  # default to max range
             docstring=f'input half-range (V_pp/2), only used in high-impedance mode, options = {self.parent.half_ranges_hz}',
-            set_cmd=self.set_half_range_hz)
+            set_cmd=self._set_half_range_hz)
         self.half_range_50 = Parameter(
             name='half_range_50',
             instrument=self,
@@ -34,22 +34,22 @@ class SD_DIG_CHANNEL(InstrumentChannel):
             vals=Enum(*self.parent.half_ranges_50),
             initial_cache_value=self.parent.half_ranges_50[-1],  # default to max range
             docstring=f'input half-range (V_pp/2), only used in 50-ohm mode, options = {self.parent.half_ranges_50}',
-            set_cmd=self.set_half_range_50)
+            set_cmd=self._set_half_range_50)
         self.high_impedance = Parameter(
             name='high_impedance',
             instrument=self,
             vals=Bool(),
             initial_cache_value=True,
             docstring='If False, use 50 Ohm',
-            set_cmd=self.set_high_impedance)
+            set_cmd=self._set_high_impedance)
         self.ac_coupling = Parameter(
             name='ac_coupling',
             instrument=self,
             vals=Bool(),
             initial_cache_value=False,
             docstring='If False, use DC coupling',
-            set_cmd=self.set_ac_coupling)
-        self.write_channelInputConfig()  # configure the digitizer with the initial values
+            set_cmd=self._set_ac_coupling)
+        self._write_channelInputConfig()  # configure the digitizer with the initial values
 
         # for channelPrescalerConfig
         self.sampling_interval = Parameter(
@@ -59,7 +59,7 @@ class SD_DIG_CHANNEL(InstrumentChannel):
             vals=Multiples(self.parent.min_sampling_interval, min_value=self.parent.min_sampling_interval),
             initial_value=self.parent.min_sampling_interval,
             docstring='must be a multiple of the minimum sampling interval',
-            set_cmd=self.set_sampling_interval)
+            set_cmd=self._set_sampling_interval)
 
         # for channelTriggerConfig
         self.analog_trigger_edge = Parameter(
@@ -68,14 +68,14 @@ class SD_DIG_CHANNEL(InstrumentChannel):
             vals=Enum('rising', 'falling', 'both'),
             initial_cache_value='rising',
             docstring="'rising', 'falling', or 'both'",
-            set_cmd=self.set_analog_trigger_edge)
+            set_cmd=self._set_analog_trigger_edge)
         self.analog_trigger_threshold = Parameter(
             name='analog_trigger_threshold',
             instrument=self,
             unit='V',
             initial_cache_value=1,
-            set_cmd=self.set_analog_trigger_threshold)
-        self.write_channelTriggerConfig()  # configure the digitizer with the initial values
+            set_cmd=self._set_analog_trigger_threshold)
+        self._write_channelTriggerConfig()  # configure the digitizer with the initial values
 
         # for DAQconfig
         self.points_per_cycle = Parameter(
@@ -83,29 +83,29 @@ class SD_DIG_CHANNEL(InstrumentChannel):
             instrument=self,
             vals=Ints(min_value=1),
             initial_cache_value=100,
-            set_cmd=self.set_points_per_cycle)
+            set_cmd=self._set_points_per_cycle)
         self.cycles = Parameter(
             name='cycles',
             instrument=self,
             vals=Ints(min_value=1),
             initial_cache_value=1,
             docstring='number of triggered acquisition cycles',
-            set_cmd=self.set_cycles)
+            set_cmd=self._set_cycles)
         self.delay = Parameter(
             name='delay',
             instrument=self,
             vals=Ints(),
             initial_cache_value=0,
             docstring='delay (or advance if negative) the acquisition, in units of sampling intervals',
-            set_cmd=self.set_delay)
+            set_cmd=self._set_delay)
         self.trigger_mode = Parameter(
             name='trigger_mode',
             instrument=self,
             vals=Enum('auto', 'software/hvi', 'external digital', 'external analog'),
             initial_cache_value='auto',
             docstring="'auto', 'software/hvi', 'external digital', or 'external analog'",
-            set_cmd=self.set_trigger_mode)
-        self.write_DAQconfig()  # configure the digitizer with the initial values
+            set_cmd=self._set_trigger_mode)
+        self._write_DAQconfig()  # configure the digitizer with the initial values
 
         # for DAQtriggerExternalConfig
         self.digital_trigger_source = Parameter(
@@ -114,29 +114,29 @@ class SD_DIG_CHANNEL(InstrumentChannel):
             vals=Enum('external', 'pxi'),
             initial_cache_value='external',
             docstring="'external' or 'pxi'",
-            set_cmd=self.set_digital_trigger_source)
+            set_cmd=self._set_digital_trigger_source)
         self.pxi_trigger_number = Parameter(
             name='pxi_trigger_number',
             instrument=self,
             vals=Ints(0, self.parent.num_triggers - 1),
             initial_cache_value=0,
             docstring=f'0, 1, ..., {self.parent.num_triggers - 1}',
-            set_cmd=self.set_pxi_trigger_number)
+            set_cmd=self._set_pxi_trigger_number)
         self.digital_trigger_behavior = Parameter(
             name='digital_trigger_behavior',
             instrument=self,
             vals=Enum('high', 'low', 'rise', 'fall'),
             initial_cache_value='rise',
             docstring="'high', 'low', 'rise', or 'fall'",
-            set_cmd=self.set_digital_trigger_behavior)
+            set_cmd=self._set_digital_trigger_behavior)
         self.digital_trigger_sync_clk10 = Parameter(
             name='digital_trigger_sync_clk10',
             instrument=self,
             vals=Bool(),
             initial_cache_value=False,
             docstring="sync to 10 MHz chassis clock",
-            set_cmd=self.set_digital_trigger_sync_clk10)
-        self.write_DAQtriggerExternalConfig()  # configure the digitizer with the initial values
+            set_cmd=self._set_digital_trigger_sync_clk10)
+        self._write_DAQtriggerExternalConfig()  # configure the digitizer with the initial values
 
         # for DAQanalogTriggerConfig
         self.analog_trigger_source = Parameter(
@@ -145,7 +145,7 @@ class SD_DIG_CHANNEL(InstrumentChannel):
             vals=Ints(1, self.parent.num_channels),
             initial_value=1,
             docstring='channel number to use as analog trigger source',
-            set_cmd=self.set_analog_trigger_source)
+            set_cmd=self._set_analog_trigger_source)
 
         # for DAQread
         self.timeout = Parameter(
@@ -167,49 +167,49 @@ class SD_DIG_CHANNEL(InstrumentChannel):
             call_cmd=self.flush,
             docstring='flush acquisition buffer and reset acquisition counter')
 
-    def write_channelInputConfig(self):
+    def _write_channelInputConfig(self):
         half_range = {True: self.half_range_hz(), False: self.half_range_50()}[self.high_impedance()]
         impedance = {True: 0, False: 1}[self.high_impedance()]
         coupling = {True: 1, False: 0}[self.ac_coupling()]
         r = self.parent.SD_AIN.channelInputConfig(self.channel, half_range, impedance, coupling)
         check_error(r, f'channelInputConfig({self.channel}, {half_range}, {impedance}, {coupling})')
 
-    def set_half_range_hz(self, value: float):
+    def _set_half_range_hz(self, value: float):
         self.half_range_hz.cache.set(value)
-        self.write_channelInputConfig()
+        self._write_channelInputConfig()
 
-    def set_half_range_50(self, value: float):
+    def _set_half_range_50(self, value: float):
         self.half_range_50.cache.set(value)
-        self.write_channelInputConfig()
+        self._write_channelInputConfig()
 
-    def set_high_impedance(self, value: bool):
+    def _set_high_impedance(self, value: bool):
         self.high_impedance.cache.set(value)
-        self.write_channelInputConfig()
+        self._write_channelInputConfig()
 
-    def set_ac_coupling(self, value: bool):
+    def _set_ac_coupling(self, value: bool):
         self.ac_coupling.cache.set(value)
-        self.write_channelInputConfig()
+        self._write_channelInputConfig()
 
-    def set_sampling_interval(self, sampling_interval: int):
+    def _set_sampling_interval(self, sampling_interval: int):
         prescaler = sampling_interval // self.parent.min_sampling_interval - 1
         r = self.parent.SD_AIN.channelPrescalerConfig(self.channel, prescaler)
         check_error(r, f'channelPrescalerConfig({self.channel}, {prescaler})')
 
-    def write_channelTriggerConfig(self):
+    def _write_channelTriggerConfig(self):
         edge = {'rising': 1, 'falling': 2, 'both': 3}[self.analog_trigger_edge()]
         threshold = self.analog_trigger_threshold()
         r = self.parent.SD_AIN.channelTriggerConfig(self.channel, edge, threshold)
         check_error(r, f'channelTriggerConfig({self.channel}, {edge}, {threshold})')
 
-    def set_analog_trigger_edge(self, value: int):
+    def _set_analog_trigger_edge(self, value: int):
         self.analog_trigger_edge.cache.set(value)
-        self.write_channelTriggerConfig()
+        self._write_channelTriggerConfig()
 
-    def set_analog_trigger_threshold(self, value: int):
+    def _set_analog_trigger_threshold(self, value: int):
         self.analog_trigger_threshold.cache.set(value)
-        self.write_channelTriggerConfig()
+        self._write_channelTriggerConfig()
 
-    def write_DAQconfig(self):
+    def _write_DAQconfig(self):
         points_per_cycle = self.points_per_cycle()
         cycles = self.cycles()
         delay = self.delay()
@@ -217,46 +217,46 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         r = self.parent.SD_AIN.DAQconfig(self.channel, points_per_cycle, cycles, delay, mode)
         check_error(r, f'DAQconfig({self.channel}, {points_per_cycle}, {cycles}, {delay}, {mode})')
 
-    def set_points_per_cycle(self, value: int):
+    def _set_points_per_cycle(self, value: int):
         self.points_per_cycle.cache.set(value)
-        self.write_DAQconfig()
+        self._write_DAQconfig()
 
-    def set_cycles(self, value: int):
+    def _set_cycles(self, value: int):
         self.cycles.cache.set(value)
-        self.write_DAQconfig()
+        self._write_DAQconfig()
 
-    def set_delay(self, value: int):
+    def _set_delay(self, value: int):
         self.delay.cache.set(value)
-        self.write_DAQconfig()
+        self._write_DAQconfig()
 
-    def set_trigger_mode(self, value: str):
+    def _set_trigger_mode(self, value: str):
         self.trigger_mode.cache.set(value)
-        self.write_DAQconfig()
+        self._write_DAQconfig()
 
-    def write_DAQtriggerExternalConfig(self):
+    def _write_DAQtriggerExternalConfig(self):
         source = {'external': 0, 'pxi': 4000 + self.pxi_trigger_number()}[self.digital_trigger_source()]
         behavior = {'high': 1, 'low': 2, 'rise': 3, 'fall': 4}[self.digital_trigger_behavior()]
         sync = {False: 0, True: 1}[self.digital_trigger_sync_clk10()]
         r = self.parent.SD_AIN.DAQtriggerExternalConfig(self.channel, source, behavior, sync)
         check_error(r, f'DAQtriggerExternalConfig({self.channel}, {source}, {behavior}, {sync})')
 
-    def set_digital_trigger_source(self, value: str):
+    def _set_digital_trigger_source(self, value: str):
         self.digital_trigger_source.cache.set(value)
-        self.write_DAQtriggerExternalConfig()
+        self._write_DAQtriggerExternalConfig()
 
-    def set_pxi_trigger_number(self, value: int):
+    def _set_pxi_trigger_number(self, value: int):
         self.pxi_trigger_number.cache.set(value)
-        self.write_DAQtriggerExternalConfig()
+        self._write_DAQtriggerExternalConfig()
 
-    def set_digital_trigger_behavior(self, value: str):
+    def _set_digital_trigger_behavior(self, value: str):
         self.digital_trigger_behavior.cache.set(value)
-        self.write_DAQtriggerExternalConfig()
+        self._write_DAQtriggerExternalConfig()
 
-    def set_digital_trigger_sync_clk10(self, value: bool):
+    def _set_digital_trigger_sync_clk10(self, value: bool):
         self.digital_trigger_sync_clk10.cache.set(value)
-        self.write_DAQtriggerExternalConfig()
+        self._write_DAQtriggerExternalConfig()
 
-    def set_analog_trigger_source(self, source_channel: int):
+    def _set_analog_trigger_source(self, source_channel: int):
         r = self.parent.SD_AIN.DAQanalogTriggerConfig(self.channel, source_channel)
         check_error(r, f'DAQanalogTriggerConfig({self.channel}, {source_channel})')
 
@@ -329,7 +329,7 @@ class SD_DIG(SD_Module):
             vals=Enum('in', 'out'),
             initial_value='in',
             docstring="'in' or 'out'",
-            set_cmd=self.set_trigger_port_direction)
+            set_cmd=self._set_trigger_port_direction)
         
         # for triggerIOread and triggerIOwrite
         self.trigger_value = Parameter(
@@ -338,20 +338,20 @@ class SD_DIG(SD_Module):
             vals=Bool(),
             initial_value=False,
             docstring="False: 0 V, True: 3.3 V (TTL)",
-            get_cmd=self.get_trigger_value,
-            set_cmd=self.set_trigger_value)
+            get_cmd=self._get_trigger_value,
+            set_cmd=self._set_trigger_value)
 
-    def set_trigger_port_direction(self, value: str):
+    def _set_trigger_port_direction(self, value: str):
         direction = {'in': 1, 'out': 0}[value]
         r = self.SD_AIN.triggerIOconfig(direction)
         check_error(r, f'triggerIOconfig({direction})')
 
-    def set_trigger_value(self, value: bool):
+    def _set_trigger_value(self, value: bool):
         output = {False: 0, True: 1}[value]
         r = self.SD_AIN.triggerIOwrite(output)
         check_error(r, f'triggerIOwrite({output})')
 
-    def get_trigger_value(self) -> bool:
+    def _get_trigger_value(self) -> bool:
         r = self.SD_AIN.triggerIOread()
         check_error(r, 'triggerIOread()')
         return {0: False, 1: True}[r]
