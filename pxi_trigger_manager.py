@@ -1,5 +1,4 @@
 import ctypes
-from functools import partial
 from typing import Any, Optional
 
 from qcodes import Instrument, Parameter
@@ -36,8 +35,21 @@ class PxiTriggerManager(Instrument):
         self.bus_segment_count = Parameter(
             name="bus_segment_count",
             instrument=self,
-            get_cmd=partial(self._get_vi_int, KTMTRIG_ATTR_SYSTEM_SEGMENT_COUNT),
+            initial_cache_value=self._get_vi_int(KTMTRIG_ATTR_SYSTEM_SEGMENT_COUNT),
         )
+
+        # determine which bus segment each slot belongs to
+        self.slot_to_segment = {}
+        for segment in range(1, self.bus_segment_count() + 1):
+            v = ctypes.c_int32(0)
+            self._dll.KtMTrig_SystemQueryLowSlotOfBusSegment(self._session, segment, ctypes.byref(v))
+            low = int(v.value)
+            v = ctypes.c_int32(0)
+            self._dll.KtMTrig_SystemQueryHighSlotOfBusSegment(self._session, segment, ctypes.byref(v))
+            high = int(v.value)
+            for slot in range(low, high + 1):
+                self.slot_to_segment[slot] = segment
+
         self.reservations = Parameter(
             name="reservations",
             instrument=self,
@@ -71,6 +83,9 @@ class PxiTriggerManager(Instrument):
             serial=self._get_vi_string(KTMTRIG_ATTR_SYSTEM_SERIAL_NUMBER),
             firmware=self._get_vi_string(KTMTRIG_ATTR_INSTRUMENT_FIRMWARE_REVISION),
         )
+    
+    def get_segment_of_slot(self, slot: int) -> int:
+        return self.slot_to_segment[slot]
 
     def check_reservation(self, bus_segment: int, trigger_line: int) -> Optional[str]:
         """Returns the owner's name if the trigger line is reserved, None if not."""
