@@ -10,6 +10,8 @@ from qcodes import (
 )
 from qcodes.utils.validators import Arrays, Enum, Ints, Numbers
 
+from .pxi_trigger_manager import PxiTriggerManager
+
 
 class LinSpaceSetpoints(Parameter):
     """A parameter which generates an array of evenly spaced setpoints from start, stop,
@@ -77,10 +79,12 @@ class PxiVnaPort(InstrumentChannel):
 
 
 class PxiVna(VisaInstrument):
+    trigger_manager: PxiTriggerManager
+
     def __init__(
         self,
         name: str,
-        address: str,
+        address: str,  # TCPIP{}::{hostname}::hislip_PXI{}_CHASSIS{}_SLOT{}_INDEX{}::INSTR
         min_freq: float,
         max_freq: float,
         min_power: float,
@@ -96,6 +100,9 @@ class PxiVna(VisaInstrument):
         super().__init__(name, address, terminator="\n", **kwargs)
         self.min_freq = min_freq
         self.max_freq = max_freq
+        hislip_name = address.split("::")[2]
+        chassis = int(hislip_name.split("_")[2][len("CHASSIS"):])
+        slot = int(hislip_name.split("_")[3][len("SLOT"):])
 
         # get measured trace in float64; this is not reset by preset()
         self.write("FORM REAL,64")
@@ -106,6 +113,10 @@ class PxiVna(VisaInstrument):
             call_cmd="SYST:PRES;:OUTP OFF;:SENS:SWE:MODE HOLD",
         )
         self.preset()
+
+        trigger_manager = PxiTriggerManager(name, address)
+        self.add_submodule("trigger_manager", trigger_manager)
+        trigger_manager.clear_client_with_label(name)
 
         ports = ChannelList(parent=self, name="ports", chan_type=PxiVnaPort)
         for n in range(num_ports):
@@ -120,6 +131,17 @@ class PxiVna(VisaInstrument):
             self.add_submodule(f"port{n+1}", port)
         ports.lock()
         self.add_submodule("ports", ports)
+
+        self.chassis_number = Parameter(
+            name="chassis_number",
+            instrument=self,
+            initial_cache_value=chassis,
+        )
+        self.slot_number = Parameter(
+            name="slot_number",
+            instrument=self,
+            initial_cache_value=slot,
+        )
 
         # "S11", "S21", etc.
         s_parameters = [
@@ -367,7 +389,12 @@ class PxiVna(VisaInstrument):
             instrument=self,
             get_cmd="SENS:SWE:TRIG:MODE?",
             set_cmd="SENS:SWE:TRIG:MODE {}",
-            val_mapping={"channel": "CHAN", "sweep": "SWE", "point": "POIN", "trace": "TRAC"},
+            val_mapping={
+                "channel": "CHAN",
+                "sweep": "SWE",
+                "point": "POIN",
+                "trace": "TRAC",
+            },
             docstring="setting trigger_mode = sweep or point forces trigger_scope = current",
         )
         self.sweep_mode = Parameter(
@@ -444,7 +471,7 @@ class PxiVna(VisaInstrument):
             name="meas_trigger_ready_pxi_line",
             instrument=self,
             get_cmd="CONT:SIGN:PXI:RTR:ROUT?",
-            set_cmd="CONT:SIGN:PXI:RTR:ROUT {}",
+            set_cmd=self.set_meas_trigger_ready_pxi_line,
             val_mapping={n: f"TRIG{n}" for n in range(8)},
         )
         self.meas_trigger_ready_polarity = Parameter(
@@ -452,7 +479,7 @@ class PxiVna(VisaInstrument):
             instrument=self,
             get_cmd="CONT:SIGN? RDY",
             set_cmd="CONT:SIGN RDY,{}",
-            val_mapping={"low":"LOW", "high":"HIGH"},
+            val_mapping={"low": "LOW", "high": "HIGH"},
         )
 
         self.add_function(
@@ -463,7 +490,7 @@ class PxiVna(VisaInstrument):
             name="trigger_ready",
             instrument=self,
             get_cmd="TRIG:STAT:READ? ANY",
-            val_mapping={True:'1', False:'0'}
+            val_mapping={True: "1", False: "0"},
         )
 
         self.format = Parameter(
@@ -504,3 +531,9 @@ class PxiVna(VisaInstrument):
             "CALC:MEAS1:DATA:FDATA?", datatype="d", is_big_endian=True
         )
         return np.array(data)
+
+    def set_meas_trigger_ready_pxi_line(self, line_str: str):
+        line = int(line_str[-1])
+        segment = self.trigger_manager.get_segment_of_slot(self.slot_number())
+        self.trigger_manager.reserve(segment, line)
+        self.write(f"CONT:SIGN:PXI:RTR:ROUT {line_str}")
