@@ -3,6 +3,7 @@ import time
 import numpy as np
 from qcodes import (
     ChannelList,
+    Function,
     InstrumentChannel,
     Parameter,
     ParameterWithSetpoints,
@@ -28,30 +29,6 @@ class LinSpaceSetpoints(Parameter):
 
     def get_raw(self):
         return np.linspace(self._start(), self._stop(), self._points())
-
-
-class PxiVnaTrace(ParameterWithSetpoints):
-    """When you get() this parameter, a sweep is performed and the measured trace is
-    returned as an array of complex numbers.
-    """
-
-    instrument: "PxiVna"
-
-    def __init__(self, name: str, sweep_type: str, **kwargs):
-        super().__init__(name, **kwargs)
-        self.sweep_type = sweep_type
-
-    def get_raw(self):
-        if self.instrument.sweep_type() != self.sweep_type:
-            raise RuntimeError(f'You must set sweep_type to "{self.sweep_type}".')
-        self.instrument.output(True)
-        self.instrument.run_sweep()
-        self.instrument.output(False)
-        self.instrument.format("real")
-        real = self.instrument.read_data()
-        self.instrument.format("imag")
-        imag = self.instrument.read_data()
-        return real + 1j * imag
 
 
 class PxiVnaPort(InstrumentChannel):
@@ -80,6 +57,8 @@ class PxiVnaPort(InstrumentChannel):
 
 class PxiVna(VisaInstrument):
     trigger_manager: PxiTriggerManager
+    preset: Function
+    manual_trigger: Function
 
     def __init__(
         self,
@@ -101,8 +80,8 @@ class PxiVna(VisaInstrument):
         self.min_freq = min_freq
         self.max_freq = max_freq
         hislip_name = address.split("::")[2]
-        chassis = int(hislip_name.split("_")[2][len("CHASSIS"):])
-        slot = int(hislip_name.split("_")[3][len("SLOT"):])
+        chassis = int(hislip_name.split("_")[2][len("CHASSIS") :])
+        slot = int(hislip_name.split("_")[3][len("SLOT") :])
 
         # get measured trace in float64; this is not reset by preset()
         self.write("FORM REAL,64")
@@ -160,7 +139,7 @@ class PxiVna(VisaInstrument):
             name="sweep_type",
             instrument=self,
             get_cmd="SENS:SWE:TYPE?",
-            set_cmd="SENS:SWE:TYPE {}",
+            set_cmd=self._set_sweep_type,
             val_mapping={"linear frequency": "LIN", "power": "POW", "cw time": "CW"},
         )
 
@@ -232,14 +211,6 @@ class PxiVna(VisaInstrument):
             unit="Hz",
             vals=Arrays(shape=(self.points.cache,)),
         )
-        self.trace = PxiVnaTrace(
-            name="trace",
-            instrument=self,
-            sweep_type="linear frequency",
-            setpoints=(self.frequencies,),
-            unit="",
-            vals=Arrays(shape=(self.points.cache,), valid_types=(complex,)),
-        )
 
         # for sweep_type = power
         self.power_start = Parameter(
@@ -287,14 +258,6 @@ class PxiVna(VisaInstrument):
             unit="dBm",
             vals=Arrays(shape=(self.points.cache,)),
         )
-        self.power_trace = PxiVnaTrace(
-            name="power_trace",
-            instrument=self,
-            sweep_type="power",
-            setpoints=(self.powers,),
-            unit="",
-            vals=Arrays(shape=(self.points.cache,), valid_types=(complex,)),
-        )
 
         # read/write for sweep_type = cw time; read-only otherwise
         self.sweep_time = Parameter(
@@ -317,13 +280,15 @@ class PxiVna(VisaInstrument):
             unit="s",
             vals=Arrays(shape=(self.points.cache,)),
         )
-        self.cw_time_trace = PxiVnaTrace(
-            name="cw_time_trace",
+
+        self.trace = ParameterWithSetpoints(
+            name="trace",
             instrument=self,
-            sweep_type="cw time",
-            setpoints=(self.times,),
+            get_cmd=self._get_trace,
+            setpoints=(self.frequencies,),
             unit="",
             vals=Arrays(shape=(self.points.cache,), valid_types=(complex,)),
+            docstring="Getting this does NOT initiate a sweep. You can set custom setpoints by assigning to trace.setpoints.",
         )
 
         self.if_bandwidth = Parameter(
@@ -471,7 +436,7 @@ class PxiVna(VisaInstrument):
             name="meas_trigger_ready_pxi_line",
             instrument=self,
             get_cmd="CONT:SIGN:PXI:RTR:ROUT?",
-            set_cmd=self.set_meas_trigger_ready_pxi_line,
+            set_cmd=self._set_meas_trigger_ready_pxi_line,
             val_mapping={n: f"TRIG{n}" for n in range(8)},
         )
         self.meas_trigger_ready_polarity = Parameter(
@@ -508,32 +473,49 @@ class PxiVna(VisaInstrument):
             },
         )
 
+    def _set_sweep_type(self, sweep_type: str):
+        if sweep_type == "LIN":
+            self.trace.setpoints = self.frequencies
+        elif sweep_type == "POW":
+            self.trace.setpoints = self.powers
+        elif sweep_type == "CW":
+            self.trace.setpoints = self.times
+        self.write(f"SENS:SWE:TYPE {sweep_type}")
+
+
+    def _get_trace(self) -> np.ndarray:
+        data = self.visa_handle.query_binary_values(
+            "CALC:MEAS1:DATA:SDATA?", datatype="d", is_big_endian=True
+        )
+        return np.array(data).view(complex)
+
+    def _set_meas_trigger_ready_pxi_line(self, line_str: str):
+        line = int(line_str[-1])
+        segment = self.trigger_manager.get_segment_of_slot(self.slot_number())
+        self.trigger_manager.reserve(segment, line)
+        self.write(f"CONT:SIGN:PXI:RTR:ROUT {line_str}")
+
     def run_sweep(self):
+        """Start a sweep and wait until it is finished.
+        The output is turned on before the sweep and turned off after.
+        """
+        self.output(True)
         if self.average():
             self.group_trigger_count(self.averages())
             self.sweep_mode("group")
         else:
             self.sweep_mode("single")
 
-        # wait until the sweep is finished
+        # when the sweep is finished, sweep_mode should be "hold"
         try:
             while self.sweep_mode() != "hold":
                 time.sleep(0.1)
         except KeyboardInterrupt as e:
             # add troubleshooting info and re-raise the exception
+            self.output(False)
             mode = self.sweep_mode()
             source = self.trigger_source()
             e.message += f" (sweep_mode = {mode}, trigger_source = {source})"
             raise e
-
-    def read_data(self) -> np.ndarray:
-        data = self.visa_handle.query_binary_values(
-            "CALC:MEAS1:DATA:FDATA?", datatype="d", is_big_endian=True
-        )
-        return np.array(data)
-
-    def set_meas_trigger_ready_pxi_line(self, line_str: str):
-        line = int(line_str[-1])
-        segment = self.trigger_manager.get_segment_of_slot(self.slot_number())
-        self.trigger_manager.reserve(segment, line)
-        self.write(f"CONT:SIGN:PXI:RTR:ROUT {line_str}")
+        finally:
+            self.output(False)
