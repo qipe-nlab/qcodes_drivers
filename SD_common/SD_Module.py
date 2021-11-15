@@ -81,7 +81,7 @@ class SD_Module(Instrument):
         self.hardware_version = Parameter(
             name='hardware_version',
             instrument=self,
-            get_cmd=self.get_hardware_version,
+            initial_cache_value=self.SD_module.getHardwareVersion(),
             docstring='The hardware version of the device')
 
     def get_idn(self) -> dict[str, Optional[str]]:
@@ -91,40 +91,6 @@ class SD_Module(Instrument):
             serial=self.SD_module.getSerialNumber(),
             firmware=str(self.SD_module.getFirmwareVersion()),
         )
-
-    def get_hardware_version(self) -> float:
-        """Returns the hardware version of the device"""
-        r = self.SD_module.getHardwareVersion()
-        check_error(r, 'getHardwareVersion()')
-        return r
-
-    def get_pxi_trigger(self, pxi_trigger: int) -> int:
-        """
-        Returns the digital value of the specified PXI trigger
-
-        Args:
-            pxi_trigger: PXI trigger number (4000 + Trigger No.)
-            verbose: boolean indicating verbose mode
-
-        Returns:
-            Digital value with negated logic, 0 (ON) or 1 (OFF), or negative
-                numbers for errors
-        """
-        r = self.SD_module.PXItriggerRead(pxi_trigger)
-        check_error(r, f'PXItriggerRead({pxi_trigger})')
-        return r
-
-    def set_pxi_trigger(self, value: int, pxi_trigger: int):
-        """
-        Sets the digital value of the specified PXI trigger
-
-        Args:
-            pxi_trigger: PXI trigger number (4000 + Trigger No.)
-            value: Digital value with negated logic, 0 (ON) or 1 (OFF)
-            verbose: boolean indicating verbose mode
-        """
-        r = self.SD_module.PXItriggerWrite(pxi_trigger, value)
-        check_error(r, f'PXItriggerWrite({pxi_trigger}, {value})')
 
     def close(self):
         """
@@ -136,11 +102,6 @@ class SD_Module(Instrument):
         # Note: module keeps track of open/close state. So, keep the reference.
         self.SD_module.close()
         super().close()
-
-    # only closes the hardware device, does not delete the current instrument
-    # object
-    def close_soft(self):
-        self.SD_module.close()
 
     def run_self_test(self) -> Any:
         r = self.SD_module.runSelfTest()
