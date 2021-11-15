@@ -3,6 +3,9 @@ from functools import partial
 from typing import Any, Optional
 
 from qcodes import ChannelList, Instrument, InstrumentChannel, Parameter
+from qcodes.instrument.parameter import invert_val_mapping
+
+from .pxi_trigger_manager import PxiTriggerManager
 
 KTMPXICHASSIS_ATTR_INSTRUMENT_FIRMWARE_REVISION = 1050510
 KTMPXICHASSIS_ATTR_INSTRUMENT_MANUFACTURER = 1050511
@@ -18,16 +21,23 @@ KTMPXICHASSIS_ATTR_TRIGGER_PORT_CONNECTED_PXI_TRIGGER_BUS_SEGMENT = 1150069
 class PxiChassisTriggerPort(InstrumentChannel):
 
     parent: "PxiChassis"
+    trigger_manager: PxiTriggerManager
 
     def __init__(
         self,
         parent: "PxiChassis",
         name: str,
         port: int,
+        reset: bool,
         **kwargs: Any,
     ):
         super().__init__(parent, name, **kwargs)
         id = f"TRIG{port}".encode()
+
+        trigger_manager = PxiTriggerManager(f"PxiChassis {name}", self.parent.address)
+        self.add_submodule("trigger_manager", trigger_manager)
+        if reset:
+            trigger_manager.clear_client_with_label(f"PxiChassis {name}")
 
         self.connected_bus_segment = Parameter(
             name="connected_bus_segment",
@@ -56,7 +66,7 @@ class PxiChassisTriggerPort(InstrumentChannel):
 
         trigger_line_mapping = {n: 2 ** n for n in range(8)}
         trigger_line_mapping["none"] = 0
-
+        self.trigger_line_mapping_inverse = invert_val_mapping(trigger_line_mapping)
         self.input_destination = Parameter(
             name="input_destination",
             instrument=self,
@@ -65,11 +75,7 @@ class PxiChassisTriggerPort(InstrumentChannel):
                 KTMPXICHASSIS_ATTR_TRIGGER_PORT_INPUT_DESTINATION,
                 repcap=id,
             ),
-            set_cmd=partial(
-                self.parent._set_vi_int,
-                KTMPXICHASSIS_ATTR_TRIGGER_PORT_INPUT_DESTINATION,
-                repcap=id,
-            ),
+            set_cmd=self.set_input_destination,
             val_mapping=trigger_line_mapping,
         )
         self.output_source = Parameter(
@@ -88,6 +94,15 @@ class PxiChassisTriggerPort(InstrumentChannel):
             val_mapping=trigger_line_mapping,
         )
 
+    def set_input_destination(self, trigger_line_code: int):
+        line = self.trigger_line_mapping_inverse(trigger_line_code)
+        if line != "none":
+            segment = self.connected_bus_segment()
+            self.trigger_manager.reserve(segment, line)
+        self.parent._set_vi_int(
+            KTMPXICHASSIS_ATTR_TRIGGER_PORT_INPUT_DESTINATION, trigger_line_code
+        )
+
 
 class PxiChassis(Instrument):
 
@@ -96,7 +111,7 @@ class PxiChassis(Instrument):
     def __init__(
         self,
         name: str,
-        address: str,
+        address: str,  # PXI[interface]::[chassis number]::BACKPLANE
         query_id: bool = True,
         reset: bool = True,
         options: str = "Cache=false",
@@ -104,6 +119,7 @@ class PxiChassis(Instrument):
         **kwargs: Any,
     ):
         super().__init__(name, **kwargs)
+        self.address = address
         self._dll = ctypes.cdll.LoadLibrary(dll_path)
         self._session = self._connect(address, query_id, reset, options)
 
@@ -118,7 +134,7 @@ class PxiChassis(Instrument):
         )
         for n in range(trigger_port_count):
             trigger_port = PxiChassisTriggerPort(
-                parent=self, name=f"trigger_port{n+1}", port=n + 1
+                parent=self, name=f"trigger_port{n+1}", port=n + 1, reset=reset
             )
             trigger_ports.append(trigger_port)
             self.add_submodule(f"trigger_port{n+1}", trigger_port)
