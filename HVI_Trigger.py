@@ -10,6 +10,13 @@ from .SD_common.SD_Module import check_error, keysightSD1
 
 
 class HVI_Trigger(Instrument):
+    """For synchronously triggering multiple AWG and digitizer modules.
+    This is a port of the Labber driver found here:
+    https://github.com/Labber-software/Drivers/tree/master/Keysight_PXI_HVI_Trigger
+    PXI backplane trigger lines 0, 1, 2 must be available.
+    The triggering functionality is in the ./HVI_Delay/InternalTrigger_{awg_count}_{dig_count}.HVI' files.
+    You need the HVI/FPGA Design Environment M3601A to view and edit these files.
+    """
 
     def __init__(
         self,
@@ -46,7 +53,7 @@ class HVI_Trigger(Instrument):
             trigger_manager.route(segment + 1, segment, trigger_line=2)
 
         # open HVI file
-        hvi_name = 'InternalTrigger_%d_%d.HVI' % (self.awg_count, self.dig_count)
+        hvi_name = f'InternalTrigger_{self.awg_count}_{self.dig_count}.HVI'
         dir_path = os.path.dirname(os.path.realpath(__file__))
         self.hvi.open(os.path.join(dir_path, 'HVI_Delay', hvi_name))
 
