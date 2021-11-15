@@ -25,6 +25,13 @@ class HVI_Trigger(Instrument):
         assert self.dig_count <= 2  # there must be at most two digitizers
 
         # reserve and route PXI trigger lines 0, 1, 2
+        #
+        #               Segment 1       Segment 2       Segment 3
+        # ----------------------------------------------------------
+        # Line 0                    →    reserve    →    reserve
+        # Line 1                    →    reserve    →    reserve
+        # Line 2         reserve    ←    reserve    ←
+        #
         # TODO: is this routing always correct? should check using M3601A
         trigger_manager = PxiTriggerManager('HVI_Trigger', address)
         self.add_submodule('trigger_manager', trigger_manager)
