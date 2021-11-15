@@ -12,6 +12,9 @@ KTMTRIG_ATTR_SYSTEM_SEGMENT_COUNT = 1150005
 
 
 class PxiTriggerManager(Instrument):
+    """For reserving and routing PXI trigger lines.
+    The reservations and routes will show up in Keysight Connection Expert.
+    """
 
     _default_buf_size = 256
 
@@ -98,7 +101,7 @@ class PxiTriggerManager(Instrument):
         assert trigger_line in range(8)
         reservation = self.check_reservation(bus_segment, trigger_line)
         if reservation is not None:
-            raise Exception(f'The trigger line is reserved by {reservation}.')
+            raise Exception(f"The trigger line is reserved by {reservation}.")
         status = self._dll.KtMTrig_PXI9SetReservation(
             self._session,
             ctypes.c_int32(bus_segment),
