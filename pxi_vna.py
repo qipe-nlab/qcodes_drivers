@@ -79,9 +79,10 @@ class PxiVna(VisaInstrument):
         super().__init__(name, address, terminator="\n", **kwargs)
         self.min_freq = min_freq
         self.max_freq = max_freq
-        hislip_name = address.split("::")[2]
-        chassis = int(hislip_name.split("_")[2][len("CHASSIS") :])
-        slot = int(hislip_name.split("_")[3][len("SLOT") :])
+        hislip_names = address.split("::")[2].split("_")
+        pxi_interface = int(hislip_names[1][len("PXI"):])
+        chassis = int(hislip_names[2][len("CHASSIS") :])
+        slot = int(hislip_names[3][len("SLOT") :])
 
         # get measured trace in float64; this is not reset by preset()
         self.write("FORM REAL,64")
@@ -93,9 +94,11 @@ class PxiVna(VisaInstrument):
         )
         self.preset()
 
-        trigger_manager = PxiTriggerManager(name, address)
+        trigger_manager_name = f"{name} meas trig ready"
+        chassis_address = f"PXI{pxi_interface}::{chassis}::BACKPLANE"
+        trigger_manager = PxiTriggerManager(trigger_manager_name, chassis_address)
         self.add_submodule("trigger_manager", trigger_manager)
-        trigger_manager.clear_client_with_label(name)
+        trigger_manager.clear_client_with_label(trigger_manager_name)
 
         ports = ChannelList(parent=self, name="ports", chan_type=PxiVnaPort)
         for n in range(num_ports):
@@ -475,11 +478,11 @@ class PxiVna(VisaInstrument):
 
     def _set_sweep_type(self, sweep_type: str):
         if sweep_type == "LIN":
-            self.trace.setpoints = self.frequencies
+            self.trace.setpoints = (self.frequencies,)
         elif sweep_type == "POW":
-            self.trace.setpoints = self.powers
+            self.trace.setpoints = (self.powers,)
         elif sweep_type == "CW":
-            self.trace.setpoints = self.times
+            self.trace.setpoints = (self.times,)
         self.write(f"SENS:SWE:TYPE {sweep_type}")
 
 

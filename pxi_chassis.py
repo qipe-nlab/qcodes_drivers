@@ -33,12 +33,12 @@ class PxiChassisTriggerPort(InstrumentChannel):
         **kwargs: Any,
     ):
         super().__init__(parent, name, **kwargs)
-        id = f"TRIG{port}".encode()
+        self.id = f"TRIG{port}".encode()
 
-        trigger_manager = PxiTriggerManager(f"PxiChassis {name}", self.parent.address)
+        trigger_manager = PxiTriggerManager(name, self.parent.address)
         self.add_submodule("trigger_manager", trigger_manager)
         if reset:
-            trigger_manager.clear_client_with_label(f"PxiChassis {name}")
+            trigger_manager.clear_client_with_label(name)
 
         self.connected_bus_segment = Parameter(
             name="connected_bus_segment",
@@ -55,12 +55,12 @@ class PxiChassisTriggerPort(InstrumentChannel):
             get_cmd=partial(
                 self.parent._get_vi_int,
                 KTMPXICHASSIS_ATTR_TRIGGER_PORT_DRIVE_TYPE,
-                repcap=id,
+                repcap=self.id,
             ),
             set_cmd=partial(
                 self.parent._set_vi_int,
                 KTMPXICHASSIS_ATTR_TRIGGER_PORT_DRIVE_TYPE,
-                repcap=id,
+                repcap=self.id,
             ),
             val_mapping={"input": 0, "push pull output": 1, "open drain output": 2},
         )
@@ -74,7 +74,7 @@ class PxiChassisTriggerPort(InstrumentChannel):
             get_cmd=partial(
                 self.parent._get_vi_int,
                 KTMPXICHASSIS_ATTR_TRIGGER_PORT_INPUT_DESTINATION,
-                repcap=id,
+                repcap=self.id,
             ),
             set_cmd=self._set_input_destination,
             val_mapping=trigger_line_mapping,
@@ -85,23 +85,25 @@ class PxiChassisTriggerPort(InstrumentChannel):
             get_cmd=partial(
                 self.parent._get_vi_int,
                 KTMPXICHASSIS_ATTR_TRIGGER_PORT_OUTPUT_SOURCE,
-                repcap=id,
+                repcap=self.id,
             ),
             set_cmd=partial(
                 self.parent._set_vi_int,
                 KTMPXICHASSIS_ATTR_TRIGGER_PORT_OUTPUT_SOURCE,
-                repcap=id,
+                repcap=self.id,
             ),
             val_mapping=trigger_line_mapping,
         )
 
     def _set_input_destination(self, trigger_line_code: int):
-        line = self.trigger_line_mapping_inverse(trigger_line_code)
+        line = self.trigger_line_mapping_inverse[trigger_line_code]
         if line != "none":
             segment = self.connected_bus_segment()
             self.trigger_manager.reserve(segment, line)
         self.parent._set_vi_int(
-            KTMPXICHASSIS_ATTR_TRIGGER_PORT_INPUT_DESTINATION, trigger_line_code
+            KTMPXICHASSIS_ATTR_TRIGGER_PORT_INPUT_DESTINATION,
+            trigger_line_code,
+            repcap=self.id,
         )
 
 
@@ -110,6 +112,9 @@ class PxiChassis(Instrument):
     Wraps the IVI-C KtMPxiChassis driver.
     Currently, only the settings related to the SMB external trigger ports are implemented.
     """
+
+    trigger_port1: PxiChassisTriggerPort
+    trigger_port2: PxiChassisTriggerPort
 
     _default_buf_size = 256
 
@@ -133,7 +138,7 @@ class PxiChassis(Instrument):
                 "Use PXIe Chassis Family driver >= 1.7.82.1 and firmware = 2017 or 2019StdTrig."
             )
 
-        trigger_port_count = self._get_vi_int(KTMPXICHASSIS_ATTR_TRIGGER_PORT_COUNT)
+        trigger_port_count = 2
         trigger_ports = ChannelList(
             parent=self, name="trigger_ports", chan_type=PxiChassisTriggerPort
         )

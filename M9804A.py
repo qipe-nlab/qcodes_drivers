@@ -1,7 +1,10 @@
-from .pxi_vna import PxiVna
+from .pxi_vna import PxiVna, PxiVnaPort
 
 
 class M9804A(PxiVna):
+    port1: PxiVnaPort
+    port2: PxiVnaPort
+
     def __init__(self, name: str, address: str, **kwargs):
         super().__init__(
             name,
