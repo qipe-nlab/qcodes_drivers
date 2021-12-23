@@ -22,12 +22,14 @@ class HVI_Trigger(Instrument):
         self,
         name: str,
         address: str,  # PXI[interface]::[chassis number]::BACKPLANE
+        chassis: int = None,  # in case the chassis number is different from the number in the address
         **kwargs: Any,
     ):
         super().__init__(name, **kwargs)
         self.hvi = keysightSD1.SD_HVI()
-        self.chassis = int(address.split('::')[1])
-        self._detect_modules()
+        if chassis is None:
+            chassis = int(address.split('::')[1])
+        self._detect_modules(chassis)
         assert self.awg_count >= 1  # there must be at least one AWG
         assert self.dig_count <= 2  # there must be at most two digitizers
 
@@ -61,10 +63,10 @@ class HVI_Trigger(Instrument):
         for m in range(2):
             for slot, name in zip(self.slot_numbers, self.module_names):
                 if name == '': continue
-                r = self.hvi.assignHardwareWithUserNameAndSlot(name, self.chassis, slot)
+                r = self.hvi.assignHardwareWithUserNameAndSlot(name, chassis, slot)
                 # only check for errors after second run
                 if m > 0:
-                    check_error(r, f'assignHardwareWithUserNameAndSlot({name}, {self.chassis}, {slot})')
+                    check_error(r, f'assignHardwareWithUserNameAndSlot({name}, {chassis}, {slot})')
 
         self.recompile = True  # need to re-compile HVI file?
 
@@ -158,13 +160,13 @@ class HVI_Trigger(Instrument):
                 if n_try <= 0:
                     raise
 
-    def _detect_modules(self):
+    def _detect_modules(self, chassis):
         self.slot_numbers = []
         self.module_names = []
         awg_index = 0
         dig_index = 0
         for n in range(keysightSD1.SD_Module.moduleCount()):
-            if keysightSD1.SD_Module.getChassisByIndex(n) != self.chassis:
+            if keysightSD1.SD_Module.getChassisByIndex(n) != chassis:
                 continue
             self.slot_numbers.append(keysightSD1.SD_Module.getSlotByIndex(n))
             product_name = keysightSD1.SD_Module.getProductNameByIndex(n)
