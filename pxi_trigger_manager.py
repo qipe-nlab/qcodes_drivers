@@ -1,4 +1,5 @@
 import ctypes
+import os
 from typing import Any, Optional
 
 from qcodes import Instrument, Parameter
@@ -8,6 +9,8 @@ KTMTRIG_ATTR_INSTRUMENT_MANUFACTURER = 1050511
 KTMTRIG_ATTR_INSTRUMENT_MODEL = 1050512
 KTMTRIG_ATTR_SYSTEM_SERIAL_NUMBER = 1150003
 KTMTRIG_ATTR_SYSTEM_SEGMENT_COUNT = 1150005
+
+os.add_dll_directory(r"C:\Program Files\Keysight\IO Libraries Suite\bin")
 
 
 class PxiTriggerManager(Instrument):

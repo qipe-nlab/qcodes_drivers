@@ -1,4 +1,5 @@
 import ctypes
+import os
 from functools import partial
 from typing import Any, Optional
 
@@ -16,6 +17,8 @@ KTMPXICHASSIS_ATTR_TRIGGER_PORT_DRIVE_TYPE = 1150055
 KTMPXICHASSIS_ATTR_TRIGGER_PORT_INPUT_DESTINATION = 1150056
 KTMPXICHASSIS_ATTR_TRIGGER_PORT_OUTPUT_SOURCE = 1150057
 KTMPXICHASSIS_ATTR_TRIGGER_PORT_CONNECTED_PXI_TRIGGER_BUS_SEGMENT = 1150069
+
+os.add_dll_directory(r"C:\Program Files\Keysight\IO Libraries Suite\bin")
 
 
 class PxiChassisTriggerPort(InstrumentChannel):
