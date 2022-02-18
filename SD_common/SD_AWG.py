@@ -26,7 +26,8 @@ def new_waveform(data: np.ndarray, suppress_nonzero_warning=False) -> keysightSD
     if data[-1] != 0 and not suppress_nonzero_warning:
         raise Exception('the last value in the waveform must be zero because '
                         'the AWG will keep outputting that value until the '
-                        'next waveform is played')
+                        'next waveform is played; set suppress_nonzero_warning '
+                        '= True to suppress this error')
     sd_wave = keysightSD1.SD_Wave()
     waveform_type = keysightSD1.SD_WaveformTypes.WAVE_ANALOG
     r = sd_wave.newFromArrayDouble(waveform_type, data / 1.5)
@@ -259,6 +260,9 @@ class SD_AWG(SD_Module):
         args:
             data = 1D numpy array in volts with dtype=float64
             waverform_id = non-negative int
+            suppress_nonzero_warning = True to allow the last value of the waveform
+                to be non-zero (not recommended because the AWG will keep outputting that
+                value until the next waveform is played)
         returns:
             available onboard RAM in waveform points
         """
@@ -276,6 +280,9 @@ class SD_AWG(SD_Module):
         args:
             data = 1D numpy array in volts with dtype=float64
             waverform_id = non-negative int
+            suppress_nonzero_warning = True to allow the last value of the waveform
+                to be non-zero (not recommended because the AWG will keep outputting that
+                value until the next waveform is played)
         returns:
             available onboard RAM in waveform points
         """
