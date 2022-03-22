@@ -8,7 +8,7 @@ class E5071C(Ena):
             address,
             min_freq=300e3,
             max_freq=14e9,
-            min_power=-55,
+            min_power=-85,
             max_power=10,
             num_ports=2,
             **kwargs,
