@@ -76,7 +76,7 @@ class PxiTriggerManager(Instrument):
             ctypes.byref(session),
         )
         if status:
-            raise Exception(f"Connection error: {status}")
+            raise Exception(f"Connection error: {status}. Maybe try this driver: https://www.keysight.com/ca/en/lib/software-detail/driver/m902x-pxie-system-module-driver-2747085.html")
         return session
 
     def get_idn(self) -> dict[str, Optional[str]]:
