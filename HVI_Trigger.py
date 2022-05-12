@@ -30,6 +30,8 @@ class HVI_Trigger(Instrument):
         if chassis is None:
             chassis = int(address.split('::')[1])
         self._detect_modules(chassis)
+        if self.awg_count + self.dig_count == 0:
+            raise Exception('No modules detected in chassis. Maybe the chassis number is wrong?')
         assert self.awg_count >= 1  # there must be at least one AWG
         assert self.dig_count <= 2  # there must be at most two digitizers
 
