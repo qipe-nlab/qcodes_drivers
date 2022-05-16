@@ -22,13 +22,11 @@ class HVI_Trigger(Instrument):
         self,
         name: str,
         address: str,  # PXI[interface]::[chassis number]::BACKPLANE
-        chassis: int = None,  # in case the chassis number is different from the number in the address
         **kwargs: Any,
     ):
         super().__init__(name, **kwargs)
         self.hvi = keysightSD1.SD_HVI()
-        if chassis is None:
-            chassis = int(address.split('::')[1])
+        chassis = int(address.split('::')[1])
         self._detect_modules(chassis)
         if self.awg_count + self.dig_count == 0:
             raise Exception('No modules detected in chassis. Maybe the chassis number is wrong?')
