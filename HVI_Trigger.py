@@ -29,7 +29,7 @@ class HVI_Trigger(Instrument):
         chassis = int(address.split('::')[1])
         self._detect_modules(chassis)
         if self.awg_count + self.dig_count == 0:
-            raise Exception('No modules detected in chassis. Maybe the chassis number is wrong?')
+            raise Exception('No modules detected in chassis. Maybe try this driver: https://www.keysight.com/ca/en/lib/software-detail/driver/m902x-pxie-system-module-driver-2747085.html')
         assert self.awg_count >= 1  # there must be at least one AWG
         assert self.dig_count <= 2  # there must be at most two digitizers
 
