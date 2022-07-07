@@ -59,7 +59,7 @@ exp = np.exp(2j*np.pi*if_freq*t)
 try:
     with meas.run() as datasaver:
         for f in np.linspace(10.02e9, 10.04e9, 2001):
-            lo_readout.frequency(f + if_freq)
+            rfsource.frequency(f + if_freq)
             awg.ch1.start()
             dig.ch1.start()
             trig.output(True)
