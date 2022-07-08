@@ -184,3 +184,11 @@ class HVI_Trigger(Instrument):
         self.hvi.close()
         self.recompile = True
         super().close()
+
+    def get_idn(self):
+        return dict(
+            vendor="Keysight Technologies",
+            model="M3601A",
+            serial=None,
+            firmware=None,
+        )
