@@ -10,6 +10,8 @@
 
 - Plot data using https://github.com/toolsforexperiments/plottr
 
+- To use HVI_Trigger, there must be an AWG in slot #2 of the PXI chassis
+
 ## Other places to look for instrument drivers
 
 - Drivers in https://github.com/QCoDeS/Qcodes/tree/master/qcodes/instrument_drivers already come with QCoDeS:
