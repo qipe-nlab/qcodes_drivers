@@ -36,7 +36,7 @@ dig.ch1.sampling_interval(2)  # sampling interval = 2 ns
 dig.ch1.points_per_cycle(500)  # number of points to acquire per cycle
 dig.ch1.cycles(10000)  # number of acquisition cycles
 dig.ch1.trigger_mode('software/hvi')
-dig.ch1.timeout(10000)  # timeout = 1000 ms
+dig.ch1.timeout(10000)  # timeout = 10000 ms
 
 # create a 125 MHz sine wave
 if_freq = 125e6
