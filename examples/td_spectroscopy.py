@@ -70,7 +70,7 @@ try:
                 (frequency, f/1e9),
                 (s11, iq)
             )
-except KeyboardInterrupt:
+except Exception:
     trig.output(False)
     awg.ch1.stop()
 finally:
