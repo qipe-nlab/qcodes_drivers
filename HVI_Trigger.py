@@ -28,10 +28,12 @@ class HVI_Trigger(Instrument):
         self.hvi = keysightSD1.SD_HVI()
         chassis = int(address.split('::')[1])
         self._detect_modules(chassis)
-        if self.awg_count + self.dig_count == 0:
+        if len(self.slot_config) == 0:
             raise Exception('No modules detected in chassis. Maybe try this driver: https://www.keysight.com/ca/en/lib/software-detail/driver/m902x-pxie-system-module-driver-2747085.html')
-        assert self.awg_count >= 1  # there must be at least one AWG
-        assert self.dig_count <= 2  # there must be at most two digitizers
+        if self.slot_config[sorted(self.slot_config.keys())[0]] != 'AWG':
+            raise Exception('There must be an AWG in the leftmost slot.')
+        if self.dig_count > 2:
+            raise Exception('There must be no more than two digitizers.')
 
         # reserve and route PXI trigger lines 0, 1, 2
         #
@@ -61,8 +63,17 @@ class HVI_Trigger(Instrument):
 
         # assign units, run twice to ignore errors before units are set
         for m in range(2):
-            for slot, name in zip(self.slot_numbers, self.module_names):
-                if name == '': continue
+            awg_index = 0
+            digitizer_index = 0
+            for slot, module_type in sorted(self.slot_config.items()):
+                if module_type == 'AWG':
+                    name = f'Module {awg_index}'
+                    awg_index += 1
+                elif module_type == 'digitizer':
+                    name = f'DAQ {digitizer_index}'
+                    digitizer_index += 1
+                else:
+                    continue
                 r = self.hvi.assignHardwareWithUserNameAndSlot(name, chassis, slot)
                 # only check for errors after second run
                 if m > 0:
@@ -161,23 +172,20 @@ class HVI_Trigger(Instrument):
                     raise
 
     def _detect_modules(self, chassis):
-        self.slot_numbers = []
-        self.module_names = []
-        awg_index = 0
-        dig_index = 0
+        self.slot_config = dict()
+        self.awg_count = 0
+        self.dig_count = 0
         for n in range(keysightSD1.SD_Module.moduleCount()):
             if keysightSD1.SD_Module.getChassisByIndex(n) != chassis:
                 continue
-            self.slot_numbers.append(keysightSD1.SD_Module.getSlotByIndex(n))
+            slot_number = keysightSD1.SD_Module.getSlotByIndex(n)
             product_name = keysightSD1.SD_Module.getProductNameByIndex(n)
-            if product_name in ('M3201A', 'M3202A', 'M3300A', 'M3302A'):  # AWG
-                self.module_names.append(f'Module {awg_index}')
-                awg_index += 1
-            elif product_name in ('M3100A', 'M3102A'):  # digitizer
-                self.module_names.append(f'DAQ {dig_index}')
-                dig_index += 1
-        self.awg_count = awg_index
-        self.dig_count = dig_index
+            if product_name in ('M3201A', 'M3202A', 'M3300A', 'M3302A'):
+                self.slot_config[slot_number] = 'AWG'
+                self.awg_count += 1
+            elif product_name in ('M3100A', 'M3102A'):
+                self.slot_config[slot_number] = 'digitizer'
+                self.dig_count += 1
 
     def close(self):
         self.output(False)
