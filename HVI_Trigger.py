@@ -22,6 +22,7 @@ class HVI_Trigger(Instrument):
         self,
         name: str,
         address: str,  # PXI[interface]::[chassis number]::BACKPLANE
+        route_trigger=True,  # automatically reserve and route PXI trigger lines
         **kwargs: Any,
     ):
         super().__init__(name, **kwargs)
@@ -35,26 +36,27 @@ class HVI_Trigger(Instrument):
         if self.dig_count > 2:
             raise Exception('There must be no more than two digitizers.')
 
-        # reserve and route PXI trigger lines 0, 1, 2
-        #
-        #               Segment 1       Segment 2       Segment 3
-        # ----------------------------------------------------------
-        # Line 0                    →    reserve    →    reserve
-        # Line 1                    →    reserve    →    reserve
-        # Line 2         reserve    ←    reserve    ←
-        #
-        # TODO: is this routing always correct? should check using M3601A
-        trigger_manager = PxiTriggerManager('HVI_Trigger', address)
-        self.add_submodule('trigger_manager', trigger_manager)
-        trigger_manager.clear_client_with_label('HVI_Trigger')
-        segment_count = trigger_manager.bus_segment_count()
-        for line in (0, 1):
-            for segment in range(2, segment_count + 1):
-                trigger_manager.reserve(segment, line)
-                trigger_manager.route(segment - 1, segment, line)
-        for segment in range(1, segment_count):
-            trigger_manager.reserve(segment, trigger_line=2)
-            trigger_manager.route(segment + 1, segment, trigger_line=2)
+        if route_trigger:
+            # reserve and route PXI trigger lines 0, 1, 2
+            #
+            #               Segment 1       Segment 2       Segment 3
+            # ----------------------------------------------------------
+            # Line 0                    →    reserve    →    reserve
+            # Line 1                    →    reserve    →    reserve
+            # Line 2         reserve    ←    reserve    ←
+            #
+            # TODO: is this routing always correct? should check using M3601A
+            trigger_manager = PxiTriggerManager('HVI_Trigger', address)
+            self.add_submodule('trigger_manager', trigger_manager)
+            trigger_manager.clear_client_with_label('HVI_Trigger')
+            segment_count = trigger_manager.bus_segment_count()
+            for line in (0, 1):
+                for segment in range(2, segment_count + 1):
+                    trigger_manager.reserve(segment, line)
+                    trigger_manager.route(segment - 1, segment, line)
+            for segment in range(1, segment_count):
+                trigger_manager.reserve(segment, trigger_line=2)
+                trigger_manager.route(segment + 1, segment, trigger_line=2)
 
         # open HVI file
         hvi_name = f'InternalTrigger_{self.awg_count}_{self.dig_count}.HVI'
