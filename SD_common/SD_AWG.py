@@ -109,6 +109,33 @@ class SD_AWG_CHANNEL(InstrumentChannel):
             docstring='all waveforms must be already queued',
             set_cmd=self._set_cyclic)
 
+        # info about the queue (read-only)
+        self.waveform_id = Parameter(
+            name='waveform_id',
+            instrument=self,
+            initial_value=[],
+            docstring='IDs of queued waveforms')
+        self.trigger = Parameter(
+            name='trigger',
+            instrument=self,
+            initial_value=[],
+            docstring='trigger modes ("auto", "software/hvi", or "external") of queued waveforms')
+        self.per_cycle = Parameter(
+            name='per_cycle',
+            instrument=self,
+            initial_value=[],
+            docstring='trigger-per-cycle settings of queued waveforms')
+        self.cycles = Parameter(
+            name='cycles',
+            instrument=self,
+            initial_value=[],
+            docstring='number-of-cycles settings (0 = infinite) of queued waveforms')
+        self.delay = Parameter(
+            name='delay',
+            instrument=self,
+            initial_value=[],
+            docstring='delay settings (ns) of queued waveforms')
+
         # add_function enables calling the function on all channels like awg.channels.flush_queue()
         self.add_function('flush_queue',
             call_cmd=self.flush_queue,
@@ -176,9 +203,21 @@ class SD_AWG_CHANNEL(InstrumentChannel):
         r = self.parent.awg.AWGqueueWaveform(self.channel, waveform_id, mode, delay_10, cycles, PRESCALER)
         check_error(r, f'AWGqueueWaveform({self.channel}, {waveform_id}, {mode}, {delay_10}, {cycles}, {PRESCALER})')
 
+        self.waveform_id.get.append(waveform_id)
+        self.trigger.get.append(trigger)
+        self.per_cycle.get.append(per_cycle)
+        self.cycles.get.append(cycles)
+        self.delay.get.append(delay)
+
     def flush_queue(self):
         r = self.parent.awg.AWGflush(self.channel)
         check_error(r, f'AWGflush({self.channel})')
+
+        self.waveform_id.cache.set([])
+        self.trigger.cache.set([])
+        self.per_cycle.cache.set([])
+        self.cycles.cache.set([])
+        self.delay.cache.set([])
 
     def start(self):
         r = self.parent.awg.AWGstart(self.channel)
