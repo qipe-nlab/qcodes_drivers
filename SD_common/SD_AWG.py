@@ -210,6 +210,7 @@ class SD_AWG(SD_Module):
 
         self.awg: keysightSD1.SD_AOU = self.SD_module
         self.flush_waveform()
+        self.waveform_ids = []
 
         channels = [SD_AWG_CHANNEL(parent=self, name=f'ch{i+1}', channel=i+1) for i in range(self.num_channels)]
         channel_list = ChannelList(parent=self, name='channels', chan_type=SD_AWG_CHANNEL, chan_list=channels)
@@ -255,7 +256,7 @@ class SD_AWG(SD_Module):
         return {0: False, 1: True}[r]
     
     def load_waveform(self, data: np.ndarray, waveform_id: int,
-                      suppress_nonzero_warning=False) -> int:
+                      suppress_nonzero_warning=False, metadata=None) -> int:
         """Load a waveform into the module onboard RAM.
         args:
             data = 1D numpy array in volts with dtype=float64
@@ -263,6 +264,8 @@ class SD_AWG(SD_Module):
             suppress_nonzero_warning = True to allow the last value of the waveform
                 to be non-zero (not recommended because the AWG will keep outputting that
                 value until the next waveform is played)
+            metadata = dict which gets saved in the DataSet. Should be a description
+                of the waveform.
         returns:
             available onboard RAM in waveform points
         """
@@ -271,10 +274,12 @@ class SD_AWG(SD_Module):
         with self._lock:
             r = self.awg.waveformLoad(waveform_object, waveform_id)
         check_error(r, f'waveformLoad(waveform_object, {waveform_id})')
+        self.load_metadata({f'waveform{waveform_id}': metadata})
+        self.waveform_ids.append(waveform_id)
         return r
 
     def reload_waveform(self, data: np.ndarray, waveform_id: int,
-                        suppress_nonzero_warning=False) -> int:
+                        suppress_nonzero_warning=False, metadata=None) -> int:
         """Replace a waveform located in the module onboard RAM.
         The size of the new waveform must be smaller than or equal to the existing waveform.
         args:
@@ -283,6 +288,8 @@ class SD_AWG(SD_Module):
             suppress_nonzero_warning = True to allow the last value of the waveform
                 to be non-zero (not recommended because the AWG will keep outputting that
                 value until the next waveform is played)
+            metadata = dict which gets saved in the DataSet. Should be a description
+                of the waveform.
         returns:
             available onboard RAM in waveform points
         """
@@ -292,6 +299,7 @@ class SD_AWG(SD_Module):
         with self._lock:
             r = self.awg.waveformReLoad(waveform_object, waveform_id, padding_mode)
         check_error(r, f'reload_waveform(waveform_object, {waveform_id}, {padding_mode})')
+        self.load_metadata({f'waveform{waveform_id}': metadata})
         return r
 
     def flush_waveform(self):
@@ -299,4 +307,6 @@ class SD_AWG(SD_Module):
         # Lock to avoid concurrent access of waveformLoad()/waveformReLoad()
         with self._lock:
             r = self.awg.waveformFlush()
+        for waveform_id in self.waveform_ids:
+            del self.metadata[f'waveform{waveform_id}']
         check_error(r, 'waveformFlush()')
