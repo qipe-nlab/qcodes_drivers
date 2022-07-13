@@ -203,11 +203,11 @@ class SD_AWG_CHANNEL(InstrumentChannel):
         r = self.parent.awg.AWGqueueWaveform(self.channel, waveform_id, mode, delay_10, cycles, PRESCALER)
         check_error(r, f'AWGqueueWaveform({self.channel}, {waveform_id}, {mode}, {delay_10}, {cycles}, {PRESCALER})')
 
-        self.waveform_id.get.append(waveform_id)
-        self.trigger.get.append(trigger)
-        self.per_cycle.get.append(per_cycle)
-        self.cycles.get.append(cycles)
-        self.delay.get.append(delay)
+        self.waveform_id.get().append(waveform_id)
+        self.trigger.get().append(trigger)
+        self.per_cycle.get().append(per_cycle)
+        self.cycles.get().append(cycles)
+        self.delay.get().append(delay)
 
     def flush_queue(self):
         r = self.parent.awg.AWGflush(self.channel)
