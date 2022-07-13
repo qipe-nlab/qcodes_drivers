@@ -113,27 +113,27 @@ class SD_AWG_CHANNEL(InstrumentChannel):
         self.waveform_id = Parameter(
             name='waveform_id',
             instrument=self,
-            initial_value=[],
+            initial_cache_value=[],
             docstring='IDs of queued waveforms')
         self.trigger = Parameter(
             name='trigger',
             instrument=self,
-            initial_value=[],
+            initial_cache_value=[],
             docstring='trigger modes ("auto", "software/hvi", or "external") of queued waveforms')
         self.per_cycle = Parameter(
             name='per_cycle',
             instrument=self,
-            initial_value=[],
+            initial_cache_value=[],
             docstring='trigger-per-cycle settings of queued waveforms')
         self.cycles = Parameter(
             name='cycles',
             instrument=self,
-            initial_value=[],
+            initial_cache_value=[],
             docstring='number-of-cycles settings (0 = infinite) of queued waveforms')
         self.delay = Parameter(
             name='delay',
             instrument=self,
-            initial_value=[],
+            initial_cache_value=[],
             docstring='delay settings (ns) of queued waveforms')
 
         # add_function enables calling the function on all channels like awg.channels.flush_queue()
