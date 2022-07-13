@@ -348,4 +348,5 @@ class SD_AWG(SD_Module):
             r = self.awg.waveformFlush()
         for waveform_id in self.waveform_ids:
             del self.metadata[f'waveform{waveform_id}']
+        self.waveform_ids = []
         check_error(r, 'waveformFlush()')
