@@ -248,8 +248,8 @@ class SD_AWG(SD_Module):
         self.num_triggers = num_triggers
 
         self.awg: keysightSD1.SD_AOU = self.SD_module
-        self.flush_waveform()
         self.waveform_ids = []
+        self.flush_waveform()
 
         channels = [SD_AWG_CHANNEL(parent=self, name=f'ch{i+1}', channel=i+1) for i in range(self.num_channels)]
         channel_list = ChannelList(parent=self, name='channels', chan_type=SD_AWG_CHANNEL, chan_list=channels)
