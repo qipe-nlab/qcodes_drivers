@@ -45,7 +45,7 @@ meas.register_parameter(time)
 voltage = qc.Parameter('voltage', unit='V')
 meas.register_parameter(voltage, setpoints=(time,))
 
-t = np.arange(500)
+t = 2 * np.arange(500)
 voltage_step = half_range / 2**13
 
 try:
