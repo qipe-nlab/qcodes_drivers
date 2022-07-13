@@ -57,6 +57,7 @@ t = np.arange(500) * 2e-9
 exp = np.exp(2j*np.pi*if_freq*t)
 
 try:
+    rfsource.rf_output('on')
     with meas.run() as datasaver:
         for f in np.linspace(10.02e9, 10.04e9, 201):
             rfsource.frequency(f + if_freq)
