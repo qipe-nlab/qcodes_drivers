@@ -14,6 +14,7 @@
 - Plot data using https://github.com/toolsforexperiments/plottr
   ```
   py -m pip install plottr[PyQt5]
+  plottr-inspectr
   ```
 
 - To use HVI_Trigger, there must be an AWG in slot #2 of the PXI chassis
