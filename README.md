@@ -3,12 +3,18 @@
 ## Getting started
 
 - Install QCoDeS: https://qcodes.github.io/Qcodes/start/index.html
+  ```
+  py -m pip install qcodes
+  ```
 
 - Clone this repository into your working directory
 
 - Try examples in https://github.com/qipe-nlab/qcodes_drivers/tree/main/examples
 
 - Plot data using https://github.com/toolsforexperiments/plottr
+  ```
+  py -m pip install plottr[PyQt5]
+  ```
 
 - To use HVI_Trigger, there must be an AWG in slot #2 of the PXI chassis
 
