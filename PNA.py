@@ -2,7 +2,9 @@ import time
 
 import numpy as np
 from qcodes import (
+    ChannelList,
     Function,
+    InstrumentChannel,
     Parameter,
     ParameterWithSetpoints,
     VisaInstrument,
@@ -25,6 +27,48 @@ class LinSpaceSetpoints(Parameter):
 
     def get_raw(self):
         return np.linspace(self._start(), self._stop(), self._points())
+
+
+class AuxTrigger(InstrumentChannel):
+    def __init__(
+        self,
+        parent: "PNA",
+        name: str,
+        n: int,
+        **kwargs,
+    ):
+        super().__init__(parent, name, **kwargs)
+
+        self.output = Parameter(
+            name="output",
+            instrument=self,
+            get_cmd=f"TRIG:CHAN:AUX{n}?",
+            set_cmd=f"TRIG:CHAN:AUX{n} {{}}",
+            val_mapping={True: "1", False: "0"},
+        )
+        self.output_pulse_duration = Parameter(
+            name="output_pulse_duration",
+            instrument=self,
+            get_cmd=f"TRIG:CHAN:AUX{n}:DURATION?",
+            get_parser=float,
+            set_cmd=f"TRIG:CHAN:AUX{n}:DURATION {{}}",
+            unit="s",
+            vals=Numbers(1e-6, 1),
+        )
+        self.output_polarity = Parameter(
+            name="output_polarity",
+            instrument=self,
+            get_cmd=f"TRIG:CHAN:AUX{n}:OPOL?",
+            set_cmd=f"TRIG:CHAN:AUX{n}:OPOL {{}}",
+            val_mapping={"positive": "POS", "negative": "NEG"},
+        )
+        self.output_position = Parameter(
+            name="output_position",
+            instrument=self,
+            get_cmd=f"TRIG:CHAN:AUX{n}:POS?",
+            set_cmd=f"TRIG:CHAN:AUX{n}:POS {{}}",
+            val_mapping={"before": "BEF", "after": "AFT"},
+        )
 
 
 class PNA(VisaInstrument):
@@ -52,10 +96,10 @@ class PNA(VisaInstrument):
         # get measured trace in float64
         self.write("FORM REAL,64")
 
-        # restore default settings, turn off output, and set trigger_source = bus
+        # restore default settings, turn off output, and set trigger_source = manual
         self.add_function(
             name="preset",
-            call_cmd="SYST:PRES;:OUTP OFF;:TRIG:SOUR MAN",
+            call_cmd="TRIG:SOUR MAN;:SYST:PRES;:OUTP OFF;:TRIG:SOUR MAN;:CALC:PAR:SEL 'CH1_S11_1'",
         )
         self.preset()
 
@@ -77,7 +121,7 @@ class PNA(VisaInstrument):
             instrument=self,
             get_cmd="SENS:SWE:TYPE?",
             set_cmd=self._set_sweep_type,
-            val_mapping={"linear frequency": "LIN", "power": "POW"},
+            val_mapping={"linear frequency": "LIN", "power": "POW", "cw time": "CW"},
         )
 
         # for all sweep_types
@@ -91,7 +135,7 @@ class PNA(VisaInstrument):
             vals=Ints(1, 32001),
         )
 
-        # for sweep_type = power
+        # for sweep_type = power, cw time
         self.cw_frequency = Parameter(
             name="cw_frequency",
             instrument=self,
@@ -207,13 +251,26 @@ class PNA(VisaInstrument):
             vals=Arrays(shape=(self.points.cache,)),
         )
 
-        # read-only
+        # read/write for sweep_type = cw time; read-only otherwise
         self.sweep_time = Parameter(
             name="sweep_time",
             instrument=self,
             get_cmd="SENS:SWE:TIME?",
             get_parser=float,
+            set_cmd="SENS:SWE:TIME {}",
             unit="s",
+            vals=Numbers(min_value=0, max_value=86400),
+        )
+
+        # for sweep_type = cw time
+        self.times = LinSpaceSetpoints(
+            name="times",
+            instrument=self,
+            start=0,
+            stop=self.sweep_time,
+            points=self.points,
+            unit="s",
+            vals=Arrays(shape=(self.points.cache,)),
         )
 
         self.trace = ParameterWithSetpoints(
@@ -277,6 +334,69 @@ class PNA(VisaInstrument):
             set_cmd="TRIG:SOUR {}",
             val_mapping={"external": "EXT", "immediate": "IMM", "manual": "MAN"},
         )
+        self.trigger_scope = Parameter(
+            name="trigger_scope",
+            instrument=self,
+            get_cmd="TRIG:SCOP?",
+            set_cmd="TRIG:SCOP {}",
+            val_mapping={"all": "ALL", "current": "CURR"},
+        )
+        self.trigger_mode = Parameter(
+            name="trigger_mode",
+            instrument=self,
+            get_cmd="SENS:SWE:TRIG:MODE?",
+            set_cmd="SENS:SWE:TRIG:MODE {}",
+            val_mapping={
+                "channel": "CHAN",
+                "sweep": "SWE",
+                "point": "POIN",
+                "trace": "TRAC",
+            },
+            docstring="setting trigger_mode = sweep or point forces trigger_scope = current",
+        )
+        self.sweep_mode = Parameter(
+            name="sweep_mode",
+            instrument=self,
+            get_cmd="SENS:SWE:MODE?",
+            set_cmd="SENS:SWE:MODE {}",
+            val_mapping={
+                "hold": "HOLD",
+                "continuous": "CONT",
+                "groups": "GRO",
+                "single": "SING",
+            },
+        )
+        self.group_trigger_count = Parameter(
+            name="group_trigger_count",
+            instrument=self,
+            get_cmd="SENS:SWE:GRO:COUN?",
+            get_parser=int,
+            set_cmd="SENS:SWE:GRO:COUN {}",
+            vals=Ints(1, 2000000),
+        )
+
+        # meas trigger input
+        self.meas_trigger_input_type = Parameter(
+            name="meas_trigger_input_type",
+            instrument=self,
+            get_cmd="TRIG:TYPE?",
+            set_cmd="TRIG:TYPE {}",
+            val_mapping={"edge": "EDGE", "level": "LEV"},
+        )
+        self.meas_trigger_input_polarity = Parameter(
+            name="meas_trigger_input_polarity",
+            instrument=self,
+            get_cmd="TRIG:SLOP?",
+            set_cmd="TRIG:SLOP {}",
+            val_mapping={"positive": "POS", "negative": "NEG"},
+        )
+        self.meas_trigger_input_accept_before_armed = Parameter(
+            name="meas_trigger_input_accept_before_armed",
+            instrument=self,
+            get_cmd="CONT:SIGN:TRIG:ATBA?",
+            set_cmd="CONT:SIGN:TRIG:ATBA {}",
+            val_mapping={True: "1", False: "0"},
+        )
 
         self.add_function(
             name="trigger",
@@ -307,11 +427,29 @@ class PNA(VisaInstrument):
             },
         )
 
+        self.aux_trigger_count = Parameter(
+            name="aux_trigger_count",
+            instrument=self,
+            get_cmd="TRIG:AUX:COUN?",
+            get_parser=int,
+        )
+        aux_triggers = ChannelList(
+            parent=self, name="aux_triggers", chan_type=AuxTrigger
+        )
+        for i in range(self.aux_trigger_count()):
+            aux = AuxTrigger(parent=self, name=f"aux{i+1}", n=i + 1)
+            aux_triggers.append(aux)
+            self.add_submodule(f"aux{i+1}", aux)
+        aux_triggers.lock()
+        self.add_submodule("aux_triggers", aux_triggers)
+
     def _set_sweep_type(self, sweep_type: str):
         if sweep_type == "LIN":
             self.trace.setpoints = (self.frequencies,)
         elif sweep_type == "POW":
             self.trace.setpoints = (self.powers,)
+        elif sweep_type == "CW":
+            self.trace.setpoints = (self.times,)
         self.write(f"SENS:SWE:TYPE {sweep_type}")
 
     def _get_trace(self) -> np.ndarray:
