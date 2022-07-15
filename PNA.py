@@ -266,7 +266,7 @@ class PNA(VisaInstrument):
         self.times = LinSpaceSetpoints(
             name="times",
             instrument=self,
-            start=0,
+            start=lambda: 0,
             stop=self.sweep_time,
             points=self.points,
             unit="s",
