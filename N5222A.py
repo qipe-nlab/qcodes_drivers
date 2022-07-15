@@ -1,7 +1,10 @@
-from .PNA import PNA
+from .PNA import AuxTrigger, PNA
 
 
 class N5222A(PNA):
+    aux1: AuxTrigger
+    aux2: AuxTrigger
+
     def __init__(self, name: str, address: str, **kwargs):
         super().__init__(
             name,
