@@ -28,5 +28,6 @@ class M3102A(SD_DIG):
             min_sampling_interval=2,  # ns
             half_ranges_hz=[0.1, 0.2, 0.4, 1, 2, 4, 8],  # V
             half_ranges_50=[0.0625, 0.125, 0.25, 0.5, 1, 2, 4],  # V
+            bits=14,
             **kwargs
         )

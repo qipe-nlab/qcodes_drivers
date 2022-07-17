@@ -14,9 +14,10 @@ from .SD_Module import SD_Module, check_error, keysightSD1
 class SD_DIG_CHANNEL(InstrumentChannel):
     parent: SD_DIG
 
-    def __init__(self, parent: SD_DIG, name: str, channel: int, **kwargs):
+    def __init__(self, parent: SD_DIG, name: str, channel: int, bits: int, **kwargs):
         super().__init__(parent, name, **kwargs)
         self.channel = channel
+        self.bits = bits
 
         # for channelInputConfig
         self.half_range_hz = Parameter(
@@ -177,10 +178,12 @@ class SD_DIG_CHANNEL(InstrumentChannel):
     def _set_half_range_hz(self, value: float):
         self.half_range_hz.cache.set(value)
         self._write_channelInputConfig()
+        self.voltage_step = 2 * value / 2**self.bits
 
     def _set_half_range_50(self, value: float):
         self.half_range_50.cache.set(value)
         self._write_channelInputConfig()
+        self.voltage_step = 2 * value / 2**self.bits
 
     def _set_high_impedance(self, value: bool):
         self.high_impedance.cache.set(value)
@@ -280,6 +283,9 @@ class SD_DIG_CHANNEL(InstrumentChannel):
         array = np.frombuffer(data, dtype=np.int16, count=num_points)
         return array.reshape(self.cycles(), self.points_per_cycle())
 
+    def read_volts(self) -> np.ndarray:
+        return self.read() * self.voltage_step
+
     def start(self):
         r = self.parent.SD_AIN.DAQstart(self.channel)
         check_error(r, f'DAQstart({self.channel})')
@@ -295,7 +301,7 @@ class SD_DIG_CHANNEL(InstrumentChannel):
 
 class SD_DIG(SD_Module):
 
-    def __init__(self, name: str, chassis: int, slot: int, num_channels: int, num_triggers: int, min_sampling_interval: int, half_ranges_hz: Sequence[float], half_ranges_50: Sequence[float], **kwargs):
+    def __init__(self, name: str, chassis: int, slot: int, num_channels: int, num_triggers: int, min_sampling_interval: int, half_ranges_hz: Sequence[float], half_ranges_50: Sequence[float], bits: int, **kwargs):
         """
         channels: number of channels in the module
         triggers: number of PXI trigger lines
@@ -314,7 +320,7 @@ class SD_DIG(SD_Module):
 
         self.SD_AIN: keysightSD1.SD_AIN = self.SD_module
 
-        channels = [SD_DIG_CHANNEL(parent=self, name=f'ch{i+1}', channel=i+1) for i in range(self.num_channels)]
+        channels = [SD_DIG_CHANNEL(parent=self, name=f'ch{i+1}', channel=i+1, bits=bits) for i in range(self.num_channels)]
         channel_list = ChannelList(parent=self, name='channels', chan_type=SD_DIG_CHANNEL, chan_list=channels)
         self.add_submodule('channels', channel_list)
 
