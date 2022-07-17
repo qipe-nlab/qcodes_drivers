@@ -135,3 +135,9 @@ class E82x7(VisaInstrument):
             name="start_sweep",
             call_cmd="INIT",
         )
+        self.sweep_done = Parameter(
+            name="sweep_done",
+            instrument=self,
+            get_cmd="STAT:OPER:COND?",
+            get_parser=lambda x: int(x) & 8 == 0,
+        )
