@@ -1,78 +1,52 @@
+import os
+
 import numpy as np
-import matplotlib.pyplot as plt
 import qcodes as qc
 import qcodes.utils.validators as vals
-from qcodes.instrument_drivers.Keysight.Keysight_N5183B import N5183B
-from qcodes_drivers.HVI_Trigger import HVI_Trigger
-from qcodes_drivers.M3102A import M3102A
-from qcodes_drivers.M3202A import M3202A
 
-experiment_name = "test"
-sample_name = "test"
-measurement_name = "td_test"
-qc.initialise_or_create_database_at("D:/qcodes/experiments.db")
-exp = qc.load_or_create_experiment(experiment_name, sample_name)
-station = qc.Station()
+from setup_td import *
 
-rfsource = N5183B('lo_readout', 'TCPIP0::192.168.100.37::hislip0::INSTR')
-station.add_component(rfsource)
-rfsource.power(-2)  # dBm
-rfsource.frequency(10e9)  # Hz
+measurement_name = os.path.basename(__file__)
 
-trig = HVI_Trigger('trigger', 'PXI0::1::BACKPLANE')
-station.add_component(trig)
-trig.trigger_period(10000)  # ns
-trig.digitizer_delay(500)  # ns
-awg = M3202A('awg', chassis=1, slot=4)
-station.add_component(awg)
-dig = M3102A('digitizer', chassis=1, slot=7)
-station.add_component(dig)
+hvi_trigger.trigger_period(10000)  # ns
+hvi_trigger.digitizer_delay(500)  # ns
 
-dig.ch1.high_impedance(False)  # 50 ohm
-half_range = 0.125  # V
-dig.ch1.half_range_50(half_range)  # half-range (V_pp/2)
-dig.ch1.ac_coupling(False)  # dc coupling
-dig.ch1.sampling_interval(2)  # sampling interval = 2 ns
-dig.ch1.points_per_cycle(500)  # number of points to acquire per cycle
-dig.ch1.cycles(10000)  # number of acquisition cycles
-dig.ch1.trigger_mode('software/hvi')
-dig.ch1.timeout(10000)  # timeout = 10000 ms
+cycles = 10000  # number of acquisition cycles
+dig_if1a.cycles(cycles)
 
-# create a 125 MHz sine wave
+points_per_cycle = 400  # number of points to acquire per cycle
+dig_if1a.points_per_cycle(points_per_cycle)
+dig_time = np.arange(points_per_cycle) * dig_if1a.sampling_interval() * 1e-9
+
 if_freq = 125e6
-t = np.arange(1200) * 1e-9  # sec
-waveform = 1.5 * np.sin(if_freq * 2*np.pi * t)  # V
+t = np.arange(1000) * 1e-9
+waveform = 1.5 * np.sin(2 * np.pi * if_freq * t)
 waveform[-1] = 0
-waveform_id = 0
-awg.load_waveform(waveform, waveform_id)
-awg.ch1.queue_waveform(waveform_id, trigger='software/hvi', cycles=10000)
+awg.load_waveform(waveform, 1)
+awg_if1b.queue_waveform(1, trigger="software/hvi", cycles=cycles)
 
-meas = qc.Measurement(exp, station, measurement_name)
-frequency = qc.Parameter('frequency', unit='GHz')
+
+meas = qc.Measurement(experiment, station, measurement_name)
+frequency = qc.Parameter("frequency", unit="GHz")
 meas.register_parameter(frequency)
-s11 = qc.Parameter('s11', vals=vals.ComplexNumbers())
+s11 = qc.Parameter("s11", vals=vals.ComplexNumbers())
 meas.register_parameter(s11, setpoints=(frequency,))
 
-t = np.arange(500) * 2e-9
-exp = np.exp(2j*np.pi*if_freq*t)
-
 try:
-    rfsource.rf_output('on')
     with meas.run() as datasaver:
-        for f in np.linspace(10.02e9, 10.04e9, 201):
-            rfsource.frequency(f + if_freq)
-            awg.ch1.start()
-            dig.ch1.start()
-            trig.output(True)
-            data = dig.ch1.read().mean(axis=0)
-            trig.output(False)
-            iq = (data*exp).mean()
-            datasaver.add_result(
-                (frequency, f/1e9),
-                (s11, iq)
-            )
-except Exception:
-    trig.output(False)
-    awg.ch1.stop()
+        datasaver.dataset.add_metadata("wiring", wiring)
+        for f in np.linspace(9e9, 11e9, 2001):
+            lo1.frequency(f - if_freq)
+            awg_if1b.start()
+            dig_if1a.start()
+            hvi_trigger.output(True)
+            data = dig_if1a.read().mean(axis=0)
+            hvi_trigger.output(False)
+            exp = np.exp(2j * np.pi * if_freq * dig_time)
+            iq = (data * exp).mean() * np.exp(-2j * np.pi * f * electrical_delay)
+            datasaver.add_result((frequency, f / 1e9), (s11, iq))
 finally:
-    rfsource.rf_output('off')
+    hvi_trigger.output(False)
+    awg_if1b.stop()
+    dig_if1a.stop()
+    lo1.output(False)
