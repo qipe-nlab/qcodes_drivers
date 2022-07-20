@@ -23,64 +23,33 @@ class HVI_Trigger(Instrument):
         name: str,
         address: str,  # PXI[interface]::[chassis number]::BACKPLANE
         route_trigger=True,  # automatically reserve and route PXI trigger lines
+        debug=False,
         **kwargs: Any,
     ):
         super().__init__(name, **kwargs)
+        self.debug = debug
         self.hvi = keysightSD1.SD_HVI()
         chassis = int(address.split('::')[1])
-        self._detect_modules(chassis)
-        if len(self.slot_config) == 0:
+
+        slot_config = self._detect_modules(chassis)
+        if len(slot_config) == 0:
             raise Exception('No modules detected in chassis. Maybe try this driver: https://www.keysight.com/ca/en/lib/software-detail/driver/m902x-pxie-system-module-driver-2747085.html')
-        if self.slot_config[sorted(self.slot_config.keys())[0]] != 'AWG':
+        if slot_config[sorted(slot_config.keys())[0]] != 'AWG':
             raise Exception('There must be an AWG in the leftmost slot.')
         if self.dig_count > 2:
             raise Exception('There must be no more than two digitizers.')
 
         if route_trigger:
-            # reserve and route PXI trigger lines 0, 1, 2
-            #
-            #               Segment 1       Segment 2       Segment 3
-            # ----------------------------------------------------------
-            # Line 0                    →    reserve    →    reserve
-            # Line 1                    →    reserve    →    reserve
-            # Line 2         reserve    ←    reserve    ←
-            #
-            # TODO: is this routing always correct? should check using M3601A
-            trigger_manager = PxiTriggerManager('HVI_Trigger', address)
-            self.add_submodule('trigger_manager', trigger_manager)
-            trigger_manager.clear_client_with_label('HVI_Trigger')
-            segment_count = trigger_manager.bus_segment_count()
-            for line in (0, 1):
-                for segment in range(2, segment_count + 1):
-                    trigger_manager.reserve(segment, line)
-                    trigger_manager.route(segment - 1, segment, line)
-            for segment in range(1, segment_count):
-                trigger_manager.reserve(segment, trigger_line=2)
-                trigger_manager.route(segment + 1, segment, trigger_line=2)
+            self._route_trigger(address)
 
         # open HVI file
+        if self.debug: print("HVI_Trigger: opening HVI file...", end="")
         hvi_name = f'InternalTrigger_{self.awg_count}_{self.dig_count}.HVI'
         dir_path = os.path.dirname(os.path.realpath(__file__))
         self.hvi.open(os.path.join(dir_path, 'HVI_Delay', hvi_name))
+        if self.debug: print("done")
 
-        # assign units, run twice to ignore errors before units are set
-        for m in range(2):
-            awg_index = 0
-            digitizer_index = 0
-            for slot, module_type in sorted(self.slot_config.items()):
-                if module_type == 'AWG':
-                    name = f'Module {awg_index}'
-                    awg_index += 1
-                elif module_type == 'digitizer':
-                    name = f'DAQ {digitizer_index}'
-                    digitizer_index += 1
-                else:
-                    continue
-                r = self.hvi.assignHardwareWithUserNameAndSlot(name, chassis, slot)
-                # only check for errors after second run
-                if m > 0:
-                    check_error(r, f'assignHardwareWithUserNameAndSlot({name}, {chassis}, {slot})')
-
+        self._assign_modules(chassis, slot_config)
         self.recompile = True  # need to re-compile HVI file?
 
         self.trigger_period = Parameter(
@@ -150,31 +119,38 @@ class HVI_Trigger(Instrument):
         if (self.awg_count + self.dig_count) == 1:
             wait += 24
 
+        if self.debug: print("HVI_Trigger: writing constants...", end="")
         r = self.hvi.writeIntegerConstantWithUserName('Module 0', 'Wait time', wait)
         check_error(r, f"writeIntegerConstantWithUserName('Module 0', 'Wait time', {wait})")
-
         for n in range(self.dig_count):
             r = self.hvi.writeIntegerConstantWithUserName('DAQ %d' % n, 'Digi wait', digi_wait)
             check_error(r, f"writeIntegerConstantWithUserName({'DAQ %d' % n}, 'Digi wait', {digi_wait})")
+        if self.debug: print("done")
 
         # need to recompile after setting wait time, not sure why
+        if self.debug: print("HVI_Trigger: compiling...", end="")
         r = self.hvi.compile()
         check_error(r, 'compile()')
+        if self.debug: print("done")
 
         # try to load a few times, sometimes hangs on first try
         n_try = 5
         while True:
             try:
+                if self.debug: print("HVI_Trigger: loading HVI...", end="")
                 r = self.hvi.load()
                 check_error(r, 'load()')
                 break
             except Exception:
+                if self.debug: print("failed")
                 n_try -= 1
                 if n_try <= 0:
                     raise
+        if self.debug: print("done")
 
     def _detect_modules(self, chassis):
-        self.slot_config = dict()
+        if self.debug: print("HVI_Trigger: detecting modules...", end="")
+        slot_config = dict()
         self.awg_count = 0
         self.dig_count = 0
         for n in range(keysightSD1.SD_Module.moduleCount()):
@@ -183,11 +159,66 @@ class HVI_Trigger(Instrument):
             slot_number = keysightSD1.SD_Module.getSlotByIndex(n)
             product_name = keysightSD1.SD_Module.getProductNameByIndex(n)
             if product_name in ('M3201A', 'M3202A', 'M3300A', 'M3302A'):
-                self.slot_config[slot_number] = 'AWG'
+                slot_config[slot_number] = 'AWG'
                 self.awg_count += 1
             elif product_name in ('M3100A', 'M3102A'):
-                self.slot_config[slot_number] = 'digitizer'
+                slot_config[slot_number] = 'digitizer'
                 self.dig_count += 1
+        if self.debug: print("done")
+        return slot_config
+
+    def _assign_modules(self, chassis, slot_config):
+        if self.debug: print("HVI_Trigger: assigning modules...", end="")
+        for m in range(2):  # run twice to ignore errors during the first time
+            awg_index = 0
+            digitizer_index = 0
+            for slot, module_type in sorted(slot_config.items()):
+                if module_type == 'AWG':
+                    name = f'Module {awg_index}'
+                    awg_index += 1
+                elif module_type == 'digitizer':
+                    name = f'DAQ {digitizer_index}'
+                    digitizer_index += 1
+                else:
+                    continue
+                r = self.hvi.assignHardwareWithUserNameAndSlot(name, chassis, slot)
+                # only check for errors after second run
+                if m > 0:
+                    check_error(r, f'assignHardwareWithUserNameAndSlot({name}, {chassis}, {slot})')
+        if self.debug: print("done")
+
+    def _route_trigger(self, address):
+        """reserve and route PXI trigger lines 0, 1, 2
+
+                      Segment 1       Segment 2       Segment 3
+        ----------------------------------------------------------
+        Line 0                    →    reserve    →    reserve
+        Line 1                    →    reserve    →    reserve
+        Line 2         reserve    ←    reserve    ←
+
+        TODO: is this routing always correct? should check using M3601A
+        """
+        if self.debug: print("HVI_Trigger: routing trigger...", end="")
+        trigger_manager = PxiTriggerManager('HVI_Trigger', address)
+        self.add_submodule('trigger_manager', trigger_manager)
+        trigger_manager.clear_client_with_label('HVI_Trigger')
+        segment_count = trigger_manager.bus_segment_count()
+        assert segment_count <= 3
+        if segment_count == 2:
+            trigger_manager.reserve(2, trigger_line=0)
+            trigger_manager.reserve(2, trigger_line=1)
+            trigger_manager.reserve(1, trigger_line=2)
+            trigger_manager.route(1, 2, trigger_line=0)
+            trigger_manager.route(1, 2, trigger_line=1)
+            trigger_manager.route(2, 1, trigger_line=2)
+        if segment_count == 3:
+            trigger_manager.reserve(3, trigger_line=0)
+            trigger_manager.reserve(3, trigger_line=1)
+            trigger_manager.reserve(2, trigger_line=2)
+            trigger_manager.route(2, 3, trigger_line=0)
+            trigger_manager.route(2, 3, trigger_line=1)
+            trigger_manager.route(3, 2, trigger_line=2)
+        if self.debug: print("done")
 
     def close(self):
         self.output(False)
