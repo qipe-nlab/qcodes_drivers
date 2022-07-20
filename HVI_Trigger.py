@@ -1,4 +1,6 @@
 import os
+from multiprocessing.connection import Client
+from subprocess import CREATE_NEW_CONSOLE, Popen
 from typing import Any
 
 from qcodes.instrument.base import Instrument
@@ -6,7 +8,7 @@ from qcodes.instrument.parameter import Parameter
 from qcodes.utils.validators import Bool, Multiples
 
 from .pxi_trigger_manager import PxiTriggerManager
-from .SD_common.SD_Module import check_error, keysightSD1
+from .SD_common.SD_Module import keysightSD1
 
 
 class HVI_Trigger(Instrument):
@@ -28,7 +30,6 @@ class HVI_Trigger(Instrument):
     ):
         super().__init__(name, **kwargs)
         self.debug = debug
-        self.hvi = keysightSD1.SD_HVI()
         chassis = int(address.split('::')[1])
 
         slot_config = self._detect_modules(chassis)
@@ -42,12 +43,17 @@ class HVI_Trigger(Instrument):
         if route_trigger:
             self._route_trigger(address)
 
+        address = ("127.0.0.1", 21165)
+        try:
+            self.hvi_daemon = Client(address)
+        except ConnectionRefusedError:
+            Popen("cmd /k py hvi_daemon.py", creationflags=CREATE_NEW_CONSOLE)
+            self.hvi_daemon = Client(address)
+
         # open HVI file
-        if self.debug: print("HVI_Trigger: opening HVI file...", end="")
         hvi_name = f'InternalTrigger_{self.awg_count}_{self.dig_count}.HVI'
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        self.hvi.open(os.path.join(dir_path, 'HVI_Delay', hvi_name))
-        if self.debug: print("done")
+        self.hvi_daemon.send(("open", os.path.join(dir_path, 'HVI_Delay', hvi_name)))
 
         self._assign_modules(chassis, slot_config)
         self.recompile = True  # need to re-compile HVI file?
@@ -84,8 +90,7 @@ class HVI_Trigger(Instrument):
             if self.output():  # if the output is ON, recompile and restart
                 self.trigger_period.cache.set(trigger_period)
                 self._compile_hvi()
-                r = self.hvi.start()
-                check_error(r, 'start()')
+                self.hvi_daemon.send(("start",))
             else:  # if the output is OFF, recompile later
                 self.recompile = True
 
@@ -94,8 +99,7 @@ class HVI_Trigger(Instrument):
             if self.output():  # if the output is ON, recompile and restart
                 self.trigger_period.cache.set(digitizer_delay)
                 self._compile_hvi()
-                r = self.hvi.start()
-                check_error(r, 'start()')
+                self.hvi_daemon.send(("start",))
             else:  # if the output is OFF, recompile later
                 self.recompile = True
 
@@ -103,10 +107,9 @@ class HVI_Trigger(Instrument):
         if output:
             if self.recompile:
                 self._compile_hvi()
-            r = self.hvi.start()
-            check_error(r, 'start()')
+            self.hvi_daemon.send(("start",))
         else:
-            self.hvi.stop()
+            self.hvi_daemon.send(("stop",))
 
     def _compile_hvi(self):
         """HVI file needs to be re-compiled after trigger_period or digitizer_delay is changed"""
@@ -119,34 +122,12 @@ class HVI_Trigger(Instrument):
         if (self.awg_count + self.dig_count) == 1:
             wait += 24
 
-        if self.debug: print("HVI_Trigger: writing constants...", end="")
-        r = self.hvi.writeIntegerConstantWithUserName('Module 0', 'Wait time', wait)
-        check_error(r, f"writeIntegerConstantWithUserName('Module 0', 'Wait time', {wait})")
+        self.hvi_daemon.send(("writeIntegerConstantWithUserName", 'Module 0', 'Wait time', wait))
         for n in range(self.dig_count):
-            r = self.hvi.writeIntegerConstantWithUserName('DAQ %d' % n, 'Digi wait', digi_wait)
-            check_error(r, f"writeIntegerConstantWithUserName({'DAQ %d' % n}, 'Digi wait', {digi_wait})")
-        if self.debug: print("done")
+            self.hvi_daemon.send(("writeIntegerConstantWithUserName", 'DAQ %d' % n, 'Digi wait', digi_wait))
 
-        # need to recompile after setting wait time, not sure why
-        if self.debug: print("HVI_Trigger: compiling...", end="")
-        r = self.hvi.compile()
-        check_error(r, 'compile()')
-        if self.debug: print("done")
-
-        # try to load a few times, sometimes hangs on first try
-        n_try = 5
-        while True:
-            try:
-                if self.debug: print("HVI_Trigger: loading HVI...", end="")
-                r = self.hvi.load()
-                check_error(r, 'load()')
-                break
-            except Exception:
-                if self.debug: print("failed")
-                n_try -= 1
-                if n_try <= 0:
-                    raise
-        if self.debug: print("done")
+        self.hvi_daemon.send(("compile",))
+        self.hvi_daemon.send(("load",))
 
     def _detect_modules(self, chassis):
         if self.debug: print("HVI_Trigger: detecting modules...", end="")
@@ -168,24 +149,18 @@ class HVI_Trigger(Instrument):
         return slot_config
 
     def _assign_modules(self, chassis, slot_config):
-        if self.debug: print("HVI_Trigger: assigning modules...", end="")
-        for m in range(2):  # run twice to ignore errors during the first time
-            awg_index = 0
-            digitizer_index = 0
-            for slot, module_type in sorted(slot_config.items()):
-                if module_type == 'AWG':
-                    name = f'Module {awg_index}'
-                    awg_index += 1
-                elif module_type == 'digitizer':
-                    name = f'DAQ {digitizer_index}'
-                    digitizer_index += 1
-                else:
-                    continue
-                r = self.hvi.assignHardwareWithUserNameAndSlot(name, chassis, slot)
-                # only check for errors after second run
-                if m > 0:
-                    check_error(r, f'assignHardwareWithUserNameAndSlot({name}, {chassis}, {slot})')
-        if self.debug: print("done")
+        awg_index = 0
+        digitizer_index = 0
+        for slot, module_type in sorted(slot_config.items()):
+            if module_type == 'AWG':
+                name = f'Module {awg_index}'
+                awg_index += 1
+            elif module_type == 'digitizer':
+                name = f'DAQ {digitizer_index}'
+                digitizer_index += 1
+            else:
+                continue
+            self.hvi_daemon.send(("assignHardwareWithUserNameAndSlot", name, chassis, slot))
 
     def _route_trigger(self, address):
         """reserve and route PXI trigger lines 0, 1, 2
@@ -222,8 +197,7 @@ class HVI_Trigger(Instrument):
 
     def close(self):
         self.output(False)
-        self.hvi.close()
-        self.recompile = True
+        self.hvi_daemon.close()
         super().close()
 
     def get_idn(self):
