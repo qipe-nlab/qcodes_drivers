@@ -1,9 +1,16 @@
+import os
 import sys
 from multiprocessing.connection import Listener
 from typing import Any
 
 sys.path.append("C:\\Program Files (x86)\\Keysight\\SD1\\Libraries\\Python")
+os.add_dll_directory("C:\\Program Files\\Keysight\\SD1\\shared")
 import keysightSD1
+
+print("This is hvi_daemon.")
+print("HVI_Trigger loads faster if you keep me open.")
+
+hvi = keysightSD1.SD_HVI()
 
 
 def check_error(return_value: Any, method_name: str):
@@ -17,52 +24,59 @@ def check_error(return_value: Any, method_name: str):
         )
 
 
-print("This is hvi_daemon.")
-print("HVI_Trigger loads faster if you keep me open.")
-
-hvi = keysightSD1.SD_HVI()
 current_file = None
+
+
+def call_method(name, *args):
+    global current_file
+    if name == "open":
+        if args[0] != current_file:
+            print(f"opening {args[0]}...", end="", flush=True)
+            r = hvi.open(args[0])
+            check_error(r, f"open('{args[0]}')")
+            print("done")
+            current_file = args[0]
+        connection.send("done")
+    elif name == "start":
+        r = hvi.start()
+        check_error(r, "start()")
+        print("HVI started")
+    elif name == "stop":
+        r = hvi.stop()
+        check_error(r, "stop()")
+        print("HVI stopped")
+    elif name == "writeIntegerConstantWithUserName":
+        r = hvi.writeIntegerConstantWithUserName(*args)
+        check_error(r, f"writeIntegerConstantWithUserName{args}")
+        print(f"wrote constant {args[1]}={args[2]} in {args[0]}")
+    elif name == "compile":
+        r = hvi.compile()
+        check_error(r, "compile()")
+        print("HVI compiled")
+    elif name == "load":
+        r = hvi.load()
+        check_error(r, "load()")
+        print("HVI loaded")
+    elif name == "assignHardwareWithUserNameAndSlot":
+        r = hvi.assignHardwareWithUserNameAndSlot(*args)
+        if r != keysightSD1.SD_Error.CHASSIS_SETUP_FAILED:  # ignore CHASSIS_SETUP_FAILED error
+            check_error(r, f"assignHardwareWithUserNameAndSlot{args}")
+        print(f"assigned chassis {args[1]} slot {args[2]} to {args[0]}", flush=True)
+        connection.send("done")
+    else:
+        raise NotImplementedError(name)
+
 
 try:
     with Listener(("127.0.0.1", 21165)) as listener:
         while True:
-            with listener.accept() as connection:
-                print("connection accepted from", listener.last_accepted)
-                while True:
-                    args = connection.recv()
-                    if args[0] == "open":
-                        if args[1] != current_file:
-                            print(f"opening {args[1]}...", end="")
-                            r = hvi.open(args[1])
-                            check_error(r, f"open('{args[1]}')")
-                            print("done")
-                            current_file = args[1]
-                    elif args[0] == "start":
-                        r = hvi.start()
-                        check_error(r, "start()")
-                        print("HVI started")
-                    elif args[0] == "stop":
-                        r = hvi.stop()
-                        check_error(r, "stop()")
-                        print("HVI stopped")
-                    elif args[0] == "writeIntegerConstantWithUserName":
-                        r = hvi.writeIntegerConstantWithUserName(*args[1:])
-                        check_error(r, f"writeIntegerConstantWithUserName{args[1:]}")
-                        print(f"wrote constant {args[2]}={args[3]} in {args[1]}")
-                    elif args[0] == "compile":
-                        r = hvi.compile()
-                        check_error(r, "compile()")
-                        print("HVI compiled")
-                    elif args[0] == "load":
-                        r = hvi.load()
-                        check_error(r, "load()")
-                        print("HVI loaded")
-                    elif args[0] == "assignHardwareWithUserNameAndSlot":
-                        r = hvi.assignHardwareWithUserNameAndSlot(*args)
-                        check_error(r, f"assignHardwareWithUserNameAndSlot{args[1:]}")
-                        print(f"assigned chassis {args[2]} slot {args[3]} to {args[1]}")
-                    else:
-                        raise NotImplementedError(args[0])
+            try:
+                with listener.accept() as connection:
+                    print("connection accepted from", listener.last_accepted)
+                    while True:
+                        call_method(*connection.recv())
+            except EOFError:
+                print("connection closed")
 finally:
     hvi.stop()
     hvi.close()

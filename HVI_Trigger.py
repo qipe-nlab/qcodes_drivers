@@ -47,13 +47,14 @@ class HVI_Trigger(Instrument):
         try:
             self.hvi_daemon = Client(address)
         except ConnectionRefusedError:
-            Popen("cmd /k py hvi_daemon.py", creationflags=CREATE_NEW_CONSOLE)
+            Popen("cmd /k py hvi_daemon.py", creationflags=CREATE_NEW_CONSOLE, cwd=os.path.dirname(__file__))
             self.hvi_daemon = Client(address)
 
         # open HVI file
         hvi_name = f'InternalTrigger_{self.awg_count}_{self.dig_count}.HVI'
         dir_path = os.path.dirname(os.path.realpath(__file__))
         self.hvi_daemon.send(("open", os.path.join(dir_path, 'HVI_Delay', hvi_name)))
+        self.hvi_daemon.recv()
 
         self._assign_modules(chassis, slot_config)
         self.recompile = True  # need to re-compile HVI file?
@@ -161,6 +162,7 @@ class HVI_Trigger(Instrument):
             else:
                 continue
             self.hvi_daemon.send(("assignHardwareWithUserNameAndSlot", name, chassis, slot))
+            self.hvi_daemon.recv()
 
     def _route_trigger(self, address):
         """reserve and route PXI trigger lines 0, 1, 2
