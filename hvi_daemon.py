@@ -3,9 +3,20 @@ import sys
 from multiprocessing.connection import Listener
 from typing import Any
 
+import win32console
+
 sys.path.append("C:\\Program Files (x86)\\Keysight\\SD1\\Libraries\\Python")
 os.add_dll_directory("C:\\Program Files\\Keysight\\SD1\\shared")
 import keysightSD1
+
+
+# disable quick edit mode of the console
+ENABLE_QUICK_EDIT_MODE = 0x40
+ENABLE_EXTENDED_FLAGS = 0x80
+screen_buffer = win32console.GetStdHandle(-10)
+orig_mode = screen_buffer.GetConsoleMode()
+new_mode = orig_mode & ~ENABLE_QUICK_EDIT_MODE
+screen_buffer.SetConsoleMode(new_mode | ENABLE_EXTENDED_FLAGS)
 
 print("This is hvi_daemon.")
 print("HVI_Trigger loads faster if you keep me open.")
@@ -59,7 +70,9 @@ def call_method(name, *args):
         print("HVI loaded")
     elif name == "assignHardwareWithUserNameAndSlot":
         r = hvi.assignHardwareWithUserNameAndSlot(*args)
-        if r != keysightSD1.SD_Error.CHASSIS_SETUP_FAILED:  # ignore CHASSIS_SETUP_FAILED error
+        if (
+            r != keysightSD1.SD_Error.CHASSIS_SETUP_FAILED
+        ):  # ignore CHASSIS_SETUP_FAILED error
             check_error(r, f"assignHardwareWithUserNameAndSlot{args}")
         print(f"assigned chassis {args[1]} slot {args[2]} to {args[0]}", flush=True)
         connection.send("done")
