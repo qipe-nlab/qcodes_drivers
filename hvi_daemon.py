@@ -89,6 +89,7 @@ try:
                     while True:
                         call_method(*connection.recv())
             except EOFError:
+                hvi.stop()
                 print("connection closed")
 finally:
     hvi.stop()
