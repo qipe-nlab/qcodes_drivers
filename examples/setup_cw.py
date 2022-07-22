@@ -47,15 +47,15 @@ def configure_drive_sweep(vna_freq: float, points: int):
     drive_source.point_trigger_source("external")
     drive_source.sweep_points(points)
 
+
 def run_drive_sweep():
     vna.output(True)
     drive_source.output(True)
     drive_source.start_sweep()
     vna.sweep_mode("single")
     try:
-        while not vna.done():
+        while not (vna.done() and drive_source.sweep_done()):
             time.sleep(0.1)
-        assert drive_source.sweep_done()
     finally:
         vna.output(False)
         drive_source.output(False)
