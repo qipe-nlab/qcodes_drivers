@@ -18,7 +18,7 @@ orig_mode = screen_buffer.GetConsoleMode()
 new_mode = orig_mode & ~ENABLE_QUICK_EDIT_MODE
 screen_buffer.SetConsoleMode(new_mode | ENABLE_EXTENDED_FLAGS)
 
-print("This is hvi_daemon.")
+os.system("title hvi_daemon")
 print("HVI_Trigger loads faster if you keep me open.")
 
 hvi = keysightSD1.SD_HVI()
@@ -88,7 +88,7 @@ try:
                     print("connection accepted from", listener.last_accepted)
                     while True:
                         call_method(*connection.recv())
-            except EOFError:
+            except (EOFError, ConnectionResetError):
                 hvi.stop()
                 print("connection closed")
 finally:
