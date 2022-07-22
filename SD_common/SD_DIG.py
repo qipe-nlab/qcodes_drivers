@@ -51,6 +51,13 @@ class SD_DIG_CHANNEL(InstrumentChannel):
             set_cmd=self._set_ac_coupling)
         self._write_channelInputConfig()  # configure the digitizer with the initial values
 
+        # read-only
+        self.voltage_step = Parameter(
+            name="voltage_step",
+            instrument=self,
+            unit="V",
+            get_cmd=self._get_voltage_step)
+
         # for channelPrescalerConfig
         self.sampling_interval = Parameter(
             name='sampling_interval',
@@ -177,12 +184,10 @@ class SD_DIG_CHANNEL(InstrumentChannel):
     def _set_half_range_hz(self, value: float):
         self.half_range_hz.cache.set(value)
         self._write_channelInputConfig()
-        self.voltage_step = value / 2**15
 
     def _set_half_range_50(self, value: float):
         self.half_range_50.cache.set(value)
         self._write_channelInputConfig()
-        self.voltage_step = value / 2**15
 
     def _set_high_impedance(self, value: bool):
         self.high_impedance.cache.set(value)
@@ -191,6 +196,12 @@ class SD_DIG_CHANNEL(InstrumentChannel):
     def _set_ac_coupling(self, value: bool):
         self.ac_coupling.cache.set(value)
         self._write_channelInputConfig()
+
+    def _get_voltage_step(self):
+        if self.high_impedance():
+            return self.half_range_hz() / 2**15
+        else:
+            return self.half_range_50() / 2**15
 
     def _set_sampling_interval(self, sampling_interval: int):
         prescaler = sampling_interval // self.parent.min_sampling_interval - 1
@@ -281,9 +292,6 @@ class SD_DIG_CHANNEL(InstrumentChannel):
             raise Exception(f'timed out')
         array = np.frombuffer(data, dtype=np.int16, count=num_points)
         return array.reshape(self.cycles(), self.points_per_cycle())
-
-    def read_volts(self) -> np.ndarray:
-        return self.read() * self.voltage_step
 
     def start(self):
         r = self.parent.SD_AIN.DAQstart(self.channel)
