@@ -1,48 +1,40 @@
 import os
 
+import matplotlib.pyplot as plt
 import numpy as np
 import qcodes as qc
 
+from sequence_parser import Sequence
 from setup_td import *
 
 measurement_name = os.path.basename(__file__)
 
-lo1.frequency(10e9)  # GHz
+readout_pulse.params["amplitude"] = 1.5
+sequence = Sequence([readout_port])
+sequence.call(readout_seq)
 
-hvi_trigger.trigger_period(10000)  # ns
-hvi_trigger.digitizer_delay(0)  # ns
+hvi_trigger.digitizer_delay(0) 
+dig_if1a.delay(0)
 
-cycles = 10000  # number of acquisition cycles
-dig_if1a.cycles(cycles)
-
-points_per_cycle = 500  # number of points to acquire per cycle
+points_per_cycle = 1000
 dig_if1a.points_per_cycle(points_per_cycle)
-dig_time = np.arange(points_per_cycle) * dig_if1a.sampling_interval() * 1e-9
+time = np.arange(points_per_cycle) * dig_if1a.sampling_interval() * 1e-9
 
-t = np.arange(400) * 1e-9
-if_freq = 125e6
-waveform = 1.5 * np.sin(2 * np.pi * if_freq * t)
-waveform[-1] = 0
-awg.load_waveform(waveform, 1)
-awg_if1b.queue_waveform(1, trigger="software/hvi", cycles=cycles)
-
-meas = qc.Measurement(experiment, station, measurement_name)
-time = qc.Parameter("time", unit="ns")
-meas.register_parameter(time)
-voltage = qc.Parameter("voltage", unit="V")
-meas.register_parameter(voltage, setpoints=(time,))
+time_param = qc.Parameter("time", unit="ns")
+voltage_param = qc.Parameter("voltage", unit="V")
+measurement = qc.Measurement(experiment, station, measurement_name)
+measurement.register_parameter(time_param)
+measurement.register_parameter(voltage_param, setpoints=(time_param,))
 
 try:
-    with meas.run() as datasaver:
+    with measurement.run() as datasaver:
         datasaver.dataset.add_metadata("wiring", wiring)
-        awg_if1b.start()
-        dig_if1a.start()
-        hvi_trigger.output(True)
-        data = dig_if1a.read_volts().mean(axis=0)
-        hvi_trigger.output(False)
-        datasaver.add_result((time, dig_time * 1e9), (voltage, data))
+        sequence.compile()
+        load_sequence(sequence, cycles=10000)
+        data = run().mean(axis=0) * dig_if1a.voltage_step()
+        datasaver.add_result(
+            (time_param, time),
+            (voltage_param, data),
+        )
 finally:
-    hvi_trigger.output(False)
-    awg_if1b.stop()
-    dig_if1a.stop()
-    lo1.output(False)
+    stop()
