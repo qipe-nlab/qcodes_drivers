@@ -16,8 +16,7 @@ lo2.frequency(lo2.frequency() + 1e6)
 delay = Variable("delay", np.linspace(0, 50000, 501), "ns")
 variables = Variables([delay])
 
-sequence = Sequence()
-sequence.port_list = [readout_port, ge_port]
+sequence = Sequence([readout_port, ge_port])
 sequence.call(ge_half_pi_seq)
 sequence.add(Delay(delay), ge_port)
 sequence.add(VirtualZ(np.pi), ge_port)

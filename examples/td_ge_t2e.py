@@ -14,8 +14,7 @@ measurement_name = os.path.basename(__file__)
 half_delay = Variable("half_delay", np.linspace(0, 250000, 251), "ns")
 variables = Variables([half_delay])
 
-sequence = Sequence()
-sequence.port_list = [readout_port, ge_port]
+sequence = Sequence([readout_port, ge_port])
 sequence.call(ge_half_pi_seq)
 sequence.add(Delay(half_delay), ge_port)
 sequence.add(VirtualZ(np.pi), ge_port)
