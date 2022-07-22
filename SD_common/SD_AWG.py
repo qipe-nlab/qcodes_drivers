@@ -10,7 +10,7 @@ from qcodes.utils.validators import Bool, Enum, Ints, Numbers
 from .SD_Module import SD_Module, check_error, keysightSD1
 
 
-def new_waveform(data: np.ndarray, suppress_nonzero_warning=False) -> keysightSD1.SD_Wave:
+def new_waveform(data: np.ndarray, suppress_nonzero_warning=False, append_zeros=False) -> keysightSD1.SD_Wave:
     """Create an SD_Wave object from a 1D numpy array in volts with dtype=float64.
     The last value in the waveform must be zero because the AWG will keep
     outputting that value until the next waveform is played.
@@ -18,9 +18,15 @@ def new_waveform(data: np.ndarray, suppress_nonzero_warning=False) -> keysightSD
     The output will clip when waveform + dc_offset is outside the +-1.5 V range.
     The length of the array must be a multiple of 10 and >= 20.
     The SD_Wave object is stored in the PC RAM, not in the module onboard RAM.
+
+    If append_zeros is True, 1 to 10 samples of zeros are appended to the end of the
+    waveform such that the length is a multiple of 10.
     """
     if data.dtype != np.float64 or data.ndim != 1:
         raise Exception('waveform must be a 1D numpy array with dtype=float64')
+    if append_zeros:
+        append_length = 10 - len(data) % 10
+        data = np.append(data, np.zeros(append_length))
     if len(data) % 10 != 0 or len(data) < 20:
         raise Exception('waveform length must be a multiple of 10 and >= 20')
     if data[-1] != 0 and not suppress_nonzero_warning:
@@ -248,7 +254,6 @@ class SD_AWG(SD_Module):
         self.num_triggers = num_triggers
 
         self.awg: keysightSD1.SD_AOU = self.SD_module
-        self.waveform_ids = []
         self.flush_waveform()
 
         channels = [SD_AWG_CHANNEL(parent=self, name=f'ch{i+1}', channel=i+1) for i in range(self.num_channels)]
@@ -295,7 +300,7 @@ class SD_AWG(SD_Module):
         return {0: False, 1: True}[r]
     
     def load_waveform(self, data: np.ndarray, waveform_id: int,
-                      suppress_nonzero_warning=False, metadata=None) -> int:
+                      suppress_nonzero_warning=False, append_zeros=False) -> int:
         """Load a waveform into the module onboard RAM.
         args:
             data = 1D numpy array in volts with dtype=float64
@@ -303,22 +308,20 @@ class SD_AWG(SD_Module):
             suppress_nonzero_warning = True to allow the last value of the waveform
                 to be non-zero (not recommended because the AWG will keep outputting that
                 value until the next waveform is played)
-            metadata = dict which gets saved in the DataSet. Should be a description
-                of the waveform.
+            append_zeros = True to append 1 to 10 samples of zeros to the end of the
+                waveform such that the length is a multiple of 10.
         returns:
             available onboard RAM in waveform points
         """
-        waveform_object = new_waveform(data, suppress_nonzero_warning)
+        waveform_object = new_waveform(data, suppress_nonzero_warning, append_zeros)
         # Lock to avoid concurrent access of waveformLoad()/waveformReLoad()
         with self._lock:
             r = self.awg.waveformLoad(waveform_object, waveform_id)
         check_error(r, f'waveformLoad(waveform_object, {waveform_id})')
-        self.load_metadata({f'waveform{waveform_id}': metadata})
-        self.waveform_ids.append(waveform_id)
         return r
 
     def reload_waveform(self, data: np.ndarray, waveform_id: int,
-                        suppress_nonzero_warning=False, metadata=None) -> int:
+                        suppress_nonzero_warning=False, append_zeros=False) -> int:
         """Replace a waveform located in the module onboard RAM.
         The size of the new waveform must be smaller than or equal to the existing waveform.
         args:
@@ -327,18 +330,17 @@ class SD_AWG(SD_Module):
             suppress_nonzero_warning = True to allow the last value of the waveform
                 to be non-zero (not recommended because the AWG will keep outputting that
                 value until the next waveform is played)
-            metadata = dict which gets saved in the DataSet. Should be a description
-                of the waveform.
+            append_zeros = True to append 1 to 10 samples of zeros to the end of the
+                waveform such that the length is a multiple of 10.
         returns:
             available onboard RAM in waveform points
         """
-        waveform_object = new_waveform(data, suppress_nonzero_warning)
+        waveform_object = new_waveform(data, suppress_nonzero_warning, append_zeros)
         padding_mode = 0
         # Lock to avoid concurrent access of waveformLoad()/waveformReLoad()
         with self._lock:
             r = self.awg.waveformReLoad(waveform_object, waveform_id, padding_mode)
         check_error(r, f'reload_waveform(waveform_object, {waveform_id}, {padding_mode})')
-        self.load_metadata({f'waveform{waveform_id}': metadata})
         return r
 
     def flush_waveform(self):
@@ -346,7 +348,4 @@ class SD_AWG(SD_Module):
         # Lock to avoid concurrent access of waveformLoad()/waveformReLoad()
         with self._lock:
             r = self.awg.waveformFlush()
-        for waveform_id in self.waveform_ids:
-            del self.metadata[f'waveform{waveform_id}']
-        self.waveform_ids = []
         check_error(r, 'waveformFlush()')
