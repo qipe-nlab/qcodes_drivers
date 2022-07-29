@@ -13,11 +13,9 @@ readout_pulse.params["amplitude"] = 1.5
 sequence = Sequence([readout_port])
 sequence.call(readout_seq)
 
-hvi_trigger.digitizer_delay(0) 
-dig_if1a.delay(0)
+hvi_trigger.digitizer_delay(0)
 
 points_per_cycle = 1000
-dig_if1a.points_per_cycle(points_per_cycle)
 time = np.arange(points_per_cycle) * dig_if1a.sampling_interval() * 1e-9
 
 time_param = qc.Parameter("time", unit="ns")
@@ -30,6 +28,8 @@ try:
     with measurement.run() as datasaver:
         datasaver.dataset.add_metadata("wiring", wiring)
         load_sequence(sequence, cycles=10000)
+        dig_if1a.delay(0)
+        dig_if1a.points_per_cycle(points_per_cycle)
         data = run().mean(axis=0) * dig_if1a.voltage_step()
         datasaver.add_result(
             (time_param, time),
