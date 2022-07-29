@@ -25,7 +25,7 @@ try:
         load_sequence(sequence, cycles=5000)
         for f in np.linspace(9e9, 11e9, 201):
             lo1.frequency(f - readout_if_freq)
-            data = run().mean(axis=0)
+            data = run(sequence).mean(axis=0)
             s11 = demodulate(data)
             datasaver.add_result(
                 (frequency_param, f),
