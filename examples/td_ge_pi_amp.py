@@ -35,7 +35,7 @@ try:
             data = run(sequence).mean(axis=0)
             s11 = demodulate(data)
             datasaver.add_result(
-                (amplitude_param, amplitude.value),
+                (amplitude_param, amplitude.get_value(update_command)),
                 (s11_param, s11),
             )
 finally:

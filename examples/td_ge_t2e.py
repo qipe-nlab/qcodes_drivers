@@ -39,7 +39,7 @@ try:
             data = run(sequence).mean(axis=0)
             s11 = demodulate(data)
             datasaver.add_result(
-                (delay_param, 2 * half_delay.value),
+                (delay_param, 2 * half_delay.get_value(update_command)),
                 (s11_param, s11),
             )
 finally:
