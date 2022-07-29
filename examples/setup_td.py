@@ -105,6 +105,7 @@ dig_if1a.timeout(10000)  # ms
 
 
 def load_sequence(sequence: Sequence, cycles: int):
+    sequence.compile()
     awg.flush_waveform()
     awg.load_waveform(readout_port.waveform.real, 0, append_zeros=True)
     awg_if1b.queue_waveform(0, trigger="software/hvi", cycles=cycles)
