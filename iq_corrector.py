@@ -214,11 +214,7 @@ class IQCorrector:
                         self.awg_q.queue_waveform(1, trigger="auto", cycles=0)
                         awg.start_all()
                         trace = spectrum_analyzer.trace()
-                        offset = 2  # correct hardware issue of spectrum analyzer
-                        rf_power = (
-                            trace[500 + if_freq + offset]
-                            + trace[500 + if_freq - offset]
-                        ) / 2
+                        rf_power = trace[500 + if_freq]
                         datasaver.add_result(
                             (amp_param, amp),
                             (if_freq_param, if_freq),

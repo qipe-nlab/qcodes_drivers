@@ -229,11 +229,7 @@ class IQCalibrator:
                         self.if_freqs[i], self.i_amp, self.q_amps[i], self.thetas[i]
                     )
                     trace = self.spectrum_analyzer.trace()
-                    offset = 2  # correct hardware issue of spectrum analyzer
-                    rf_power = (
-                        trace[500 + self.if_freqs[i] + offset]
-                        + trace[500 + self.if_freqs[i] - offset]
-                    ) / 2
+                    rf_power = trace[500 + self.if_freqs[i]]
                     datasaver.add_result(
                         (if_freq_param, self.if_freqs[i]),
                         (
