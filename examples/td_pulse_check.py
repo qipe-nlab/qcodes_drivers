@@ -30,7 +30,7 @@ try:
         load_sequence(sequence, cycles=10000)
         dig_if1a.delay(0)
         dig_if1a.points_per_cycle(points_per_cycle)
-        data = run().mean(axis=0) * dig_if1a.voltage_step()
+        data = run(sequence).mean(axis=0) * dig_if1a.voltage_step()
         datasaver.add_result(
             (time_param, time),
             (voltage_param, data),

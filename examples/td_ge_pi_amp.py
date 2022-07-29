@@ -32,7 +32,7 @@ try:
         for update_command in variables.update_command_list:
             sequence.update_variables(update_command)
             load_sequence(sequence, cycles=5000)
-            data = run().mean(axis=0)
+            data = run(sequence).mean(axis=0)
             s11 = demodulate(data)
             datasaver.add_result(
                 (amplitude_param, amplitude.value),
