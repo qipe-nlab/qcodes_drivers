@@ -31,7 +31,6 @@ try:
         datasaver.dataset.add_metadata("wiring", wiring)
         for update_command in variables.update_command_list:
             sequence.update_variables(update_command)
-            sequence.compile()
             load_sequence(sequence, cycles=5000)
             for f in np.linspace(9e9, 11e9, 201):
                 lo1.frequency(f - readout_if_freq)

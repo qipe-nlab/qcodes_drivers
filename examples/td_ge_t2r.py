@@ -34,7 +34,6 @@ try:
         datasaver.dataset.add_metadata("wiring", wiring)
         for update_command in variables.update_command_list:
             sequence.update_variables(update_command)
-            sequence.compile()
             load_sequence(sequence, cycles=5000)
             data = run().mean(axis=0)
             s11 = demodulate(data)
