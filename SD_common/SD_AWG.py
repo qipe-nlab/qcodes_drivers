@@ -24,6 +24,8 @@ def new_waveform(data: np.ndarray, suppress_nonzero_warning=False, append_zeros=
     """
     if data.dtype != np.float64 or data.ndim != 1:
         raise Exception('waveform must be a 1D numpy array with dtype=float64')
+    if np.any(abs(data) > 1.5):
+        raise Exception('waveform must be between -1.5 V and 1.5 V')
     if append_zeros:
         append_length = 10 - len(data) % 10
         data = np.append(data, np.zeros(append_length))
@@ -349,3 +351,9 @@ class SD_AWG(SD_Module):
         with self._lock:
             r = self.awg.waveformFlush()
         check_error(r, 'waveformFlush()')
+
+    def start_all(self):
+        self.awg.AWGstartMultiple(0b1111)
+
+    def stop_all(self):
+        self.awg.AWGstopMultiple(0b1111)
