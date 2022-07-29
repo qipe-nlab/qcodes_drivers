@@ -29,7 +29,6 @@ measurement.register_parameter(voltage_param, setpoints=(time_param,))
 try:
     with measurement.run() as datasaver:
         datasaver.dataset.add_metadata("wiring", wiring)
-        sequence.compile()
         load_sequence(sequence, cycles=10000)
         data = run().mean(axis=0) * dig_if1a.voltage_step()
         datasaver.add_result(
