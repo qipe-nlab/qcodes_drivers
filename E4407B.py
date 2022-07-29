@@ -109,6 +109,12 @@ class E4407B(VisaInstrument):
         )
 
         self.add_parameter(
+            name="external_frequency_reference",
+            get_cmd="CAL:FREQ:REF?",
+            val_mapping={False: "INT", True: "EXT"}
+        )
+
+        self.add_parameter(
             name="start",
             unit="Hz",
             get_cmd=":SENSe:FREQuency:STARt?",
@@ -144,16 +150,16 @@ class E4407B(VisaInstrument):
             get_cmd=":SENSe:FREQuency:SPAN?",
             set_cmd=self._set_span,
             get_parser=float,
-            vals=Numbers(10, self._max_freq - self._min_freq),
+            vals=Numbers(0, self._max_freq - self._min_freq),
             docstring="Changes span of frequency"
         )
 
         self.add_parameter(
             name="npts",
             get_cmd=":SENSe:SWEep:POINts?",
-            set_cmd=self._set_npts,
+            set_cmd=":SENSe:SWEep:POINts {}",
             get_parser=int,
-            vals=Ints(1, 20001),
+            vals=Ints(2, 8192),
             docstring="Number of points for the sweep"
         )
 
@@ -174,6 +180,14 @@ class E4407B(VisaInstrument):
         )
 
         self.add_parameter(
+            name="reference_level",
+            get_cmd="DISP:WIND:TRAC:Y:RLEV?",
+            set_cmd="DISP:WIND:TRAC:Y:RLEV {:.2f}",
+            get_parser=float,
+            unit="dBm",
+        )
+
+        self.add_parameter(
             name="sweep_time",
             label="Sweep time",
             get_cmd=":SENSe:SWEep:TIME?",
@@ -186,7 +200,7 @@ class E4407B(VisaInstrument):
         self.add_parameter(
             name="auto_sweep_time_enabled",
             get_cmd=":SENSe:SWEep:TIME:AUTO?",
-            set_cmd=self._enable_auto_sweep_time,
+            set_cmd=":SENSe:SWEep:TIME:AUTO {}",
             val_mapping=create_on_off_val_mapping(on_val="ON", off_val="OFF"),
             docstring="enables auto sweep time"
         )
@@ -194,7 +208,7 @@ class E4407B(VisaInstrument):
         self.add_parameter(
             name="auto_sweep_type_enabled",
             get_cmd=":SENSe:SWEep:TYPE:AUTO?",
-            set_cmd=self._enable_auto_sweep_type,
+            set_cmd=":SENSe:SWEep:TYPE:AUTO {}",
             val_mapping=create_on_off_val_mapping(on_val="ON", off_val="OFF"),
             docstring="enables auto sweep type"
         )
@@ -202,7 +216,7 @@ class E4407B(VisaInstrument):
         self.add_parameter(
             name="sweep_type",
             get_cmd=":SENSe:SWEep:TYPE?",
-            set_cmd=self._set_sweep_type,
+            set_cmd=":SENSe:SWEep:TYPE {}",
             val_mapping={
                 "fft": "FFT",
                 "sweep": "SWE",
@@ -227,13 +241,21 @@ class E4407B(VisaInstrument):
         self.add_parameter(
             name="trace",
             label="Trace",
-            unit="dB",
+            unit="dBm",
             number=1,
             vals=Arrays(shape=(self.npts.get_latest,)),
             setpoints=(self.freq_axis,),
             parameter_class=Trace,
             docstring="Gets trace data."
         )
+
+        self.add_parameter(
+            name="trace_mean",
+            unit="dBm",
+            get_cmd="INIT:IMM;*OPC?;:TRAC:MATH:MEAN? TRACE1",
+            get_parser=lambda s: float(s[3:]),
+        )
+
         self.connect_message()
         self.reset()
 
@@ -288,30 +310,6 @@ class E4407B(VisaInstrument):
         """
         self.write(f":SENSe:FREQuency:SPAN {val}")
         self.update_trace()
-
-    def _set_npts(self, val: int) -> None:
-        """
-        Sets number of points for sweep
-        """
-        self.write(f":SENSe:SWEep:POINts {val}")
-
-    def _enable_auto_sweep_time(self, val: str) -> None:
-        """
-        Enables auto sweep time
-        """
-        self.write(f":SENSe:SWEep:TIME:AUTO {val}")
-
-    def _enable_auto_sweep_type(self, val: str) -> None:
-        """
-        Enables auto sweep type
-        """
-        self.write(f":SENSe:SWEep:TYPE:AUTO {val}")
-
-    def _set_sweep_type(self, val: str) -> None:
-        """
-        Sets sweep type
-        """
-        self.write(f":SENSe:SWEep:TYPE {val}")
 
     def _get_data(self, trace_num: int) -> ParamRawDataType:
         """
