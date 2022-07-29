@@ -13,7 +13,7 @@ from sequence_parser.instruction import (Acquire, Delay, Gaussian, ResetPhase,
 
 experiment_name = "CDY136_TD"
 sample_name = "DPR1-L-120-44"
-qc.initialise_or_create_database_at("D:/sunada/DPR.db")
+qc.initialise_or_create_database_at("D:/your_name/your_project.db")
 experiment = qc.load_or_create_experiment(experiment_name, sample_name)
 
 wiring = """
