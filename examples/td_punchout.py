@@ -10,13 +10,15 @@ from setup_td import *
 
 measurement_name = os.path.basename(__file__)
 
-amplitude = Variable("amplitude", np.linspace(0, 1.5, 151), "V")
+amplitude = Variable("amplitude", np.linspace(0, 1.5, 76)[1:], "V")
 variables = Variables([amplitude])
 
 readout_pulse.params["amplitude"] = amplitude
 
 sequence = Sequence([readout_port])
 sequence.call(readout_seq)
+
+hvi_trigger.trigger_period(10000)  # ns
 
 amplitude_param = qc.Parameter("amplitude", unit="V")
 frequency_param = qc.Parameter("frequency", unit="GHz")
@@ -35,11 +37,11 @@ try:
             for f in np.linspace(9e9, 11e9, 201):
                 lo1.frequency(f - readout_if_freq)
                 data = run(sequence).mean(axis=0)
-                s11 = demodulate(data)
+                s11 = demodulate(data) * np.exp(-2j * np.pi * f * electrical_delay)
                 datasaver.add_result(
                     (amplitude_param, amplitude.get_value(update_command)),
                     (frequency_param, f),
-                    (s11_param, s11),
+                    (s11_param, s11 / amplitude.get_value(update_command)),
                 )
 finally:
     stop()

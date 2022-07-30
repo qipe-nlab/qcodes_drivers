@@ -2,9 +2,9 @@ import numpy as np
 import qcodes as qc
 from qcodes.instrument_drivers.rohde_schwarz.SGS100A import \
     RohdeSchwarz_SGS100A
-
 from qcodes_drivers.E82x7 import E82x7
 from qcodes_drivers.HVI_Trigger import HVI_Trigger
+from qcodes_drivers.iq_corrector import IQCorrector
 from qcodes_drivers.M3102A import M3102A
 from qcodes_drivers.M3202A import M3202A
 from sequence_parser import Port, Sequence
@@ -36,8 +36,9 @@ electrical_delay = 42e-9  # sec
 
 readout_freq = 9.285e9
 readout_if_freq = 125e6
-ge_freq = 8.1130e9
-ge_if_freq = 125e6
+qubit_lo_freq = 8e9
+ge_freq = 8.1038e9
+ge_if_freq = ge_freq - qubit_lo_freq
 
 readout_port = Port("readout_port", readout_if_freq / 1e9, max_amp=1.5)
 ge_port = Port("ge_port", ge_if_freq / 1e9, max_amp=1.5)
@@ -49,7 +50,7 @@ readout_seq.add(ResetPhase(np.pi / 2), readout_port)
 with readout_seq.align(readout_port, "left"):
     readout_seq.add(Square(amplitude=1, duration=1000), readout_port)
     readout_seq.add(Acquire(duration=1000), readout_port)
-readout_pulse = readout_seq.instruction_list[3][0]
+readout_pulse = readout_seq.instruction_list[4][0]
 
 ge_pi_seq = Sequence()
 ge_pi_seq.add(Gaussian(amplitude=0.574, fwhm=40, duration=100, zero_end=True), ge_port)
@@ -68,7 +69,7 @@ station.add_component(lo1)
 
 lo2 = RohdeSchwarz_SGS100A("lo2", "TCPIP0::192.168.101.26::hislip0::INSTR")
 lo2.off()
-lo2.frequency(ge_freq - ge_if_freq)
+lo2.frequency(qubit_lo_freq)
 lo2.power(18)  # dBm
 station.add_component(lo2)
 
@@ -91,6 +92,15 @@ awg_i2 = awg.ch2
 awg_q2 = awg.ch3
 awg_if3 = awg.ch4
 
+iq_corrector = IQCorrector(
+    awg_i2,
+    awg_q2,
+    lo_leakage_id=498,
+    rf_power_id=500,
+    len_kernel=41,
+    fit_weight=10,
+)
+
 dig = M3102A("dig", chassis=1, slot=9)
 dig.channels.stop()
 station.add_component(dig)
@@ -106,6 +116,7 @@ dig_if1a.timeout(10000)  # ms
 
 def load_sequence(sequence: Sequence, cycles: int):
     sequence.compile()
+    awg.stop_all()
     awg.flush_waveform()
     awg.load_waveform(readout_port.waveform.real, 0, append_zeros=True)
     awg_if1b.queue_waveform(0, trigger="software/hvi", cycles=cycles)
@@ -119,8 +130,9 @@ def load_sequence(sequence: Sequence, cycles: int):
         dig_if1a.points_per_cycle(points_per_cycle)
         dig_if1a.delay(acquire_start // dig_if1a.sampling_interval())
     if ge_port in sequence.port_list:
-        awg.load_waveform(ge_port.waveform.real, 1, append_zeros=True)
-        awg.load_waveform(-ge_port.waveform.imag, 2, append_zeros=True)
+        i, q = iq_corrector.correct(ge_port.waveform.conj())
+        awg.load_waveform(i, 1, append_zeros=True)
+        awg.load_waveform(q, 2, append_zeros=True)
         awg_i2.queue_waveform(1, trigger="software/hvi", cycles=cycles)
         awg_q2.queue_waveform(2, trigger="software/hvi", cycles=cycles)
 
@@ -135,9 +147,7 @@ def run(sequence: Sequence):
         awg_q2.start()
     hvi_trigger.output(True)
     data = dig_if1a.read()
-    awg_if1b.stop()
-    awg_i2.stop()
-    awg_q2.stop()
+    awg.stop_all()
     dig_if1a.stop()
     hvi_trigger.output(False)
     return data
@@ -145,15 +155,12 @@ def run(sequence: Sequence):
 
 def demodulate(data):
     t = np.arange(dig_if1a.points_per_cycle()) * dig_if1a.sampling_interval() * 1e-9
-    exp = np.exp(2j * np.pi * readout_if_freq * t)
-    return (data * exp).mean(axis=-1)
+    return (data * np.exp(2j * np.pi * readout_if_freq * t)).mean(axis=-1)
 
 
 def stop():
     hvi_trigger.output(False)
-    awg_if1b.stop()
-    awg_i2.stop()
-    awg_q2.stop()
+    awg.stop_all()
     dig_if1a.stop()
     lo1.output(False)
     lo2.off()

@@ -13,7 +13,6 @@ vna.start(6e9)  # Hz
 vna.stop(12e9)  # Hz
 vna.points(601)
 vna.if_bandwidth(1000)  # Hz
-vna.electrical_delay(41.5e-9)  # s
 
 meas = qc.Measurement(experiment, station, measurement_name)
 meas.register_parameter(vna.frequencies)
@@ -23,6 +22,7 @@ meas.register_parameter(vna.trace, setpoints=(vna.power, vna.frequencies))
 powers = np.linspace(-50, 0, 6)  # dBm
 
 with meas.run() as datasaver:
+    datasaver.dataset.add_metadata("wiring", wiring)
     for power in powers:
         vna.power(power)
         vna.run_sweep()
@@ -31,4 +31,3 @@ with meas.run() as datasaver:
             (vna.frequencies, vna.frequencies()),
             (vna.trace, vna.trace()),
         )
-    dataset = datasaver.dataset

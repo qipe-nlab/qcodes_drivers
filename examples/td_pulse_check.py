@@ -16,7 +16,7 @@ sequence.call(readout_seq)
 hvi_trigger.digitizer_delay(0)
 
 points_per_cycle = 1000
-time = np.arange(points_per_cycle) * dig_if1a.sampling_interval() * 1e-9
+time = np.arange(points_per_cycle) * dig_if1a.sampling_interval()
 
 time_param = qc.Parameter("time", unit="ns")
 voltage_param = qc.Parameter("voltage", unit="V")

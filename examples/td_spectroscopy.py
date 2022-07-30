@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import qcodes as qc
 import qcodes.utils.validators as vals
-
 from sequence_parser import Sequence
+
 from setup_td import *
 
 measurement_name = os.path.basename(__file__)
@@ -26,7 +26,7 @@ try:
         for f in np.linspace(9e9, 11e9, 201):
             lo1.frequency(f - readout_if_freq)
             data = run(sequence).mean(axis=0)
-            s11 = demodulate(data)
+            s11 = demodulate(data) * np.exp(-2j * np.pi * f * electrical_delay)
             datasaver.add_result(
                 (frequency_param, f),
                 (s11_param, s11),
