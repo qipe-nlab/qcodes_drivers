@@ -200,7 +200,7 @@ class IQCalibrator:
         self.spectrum_analyzer.npts(1001)
         self.spectrum_analyzer.resolution_bandwidth(5e6)  # Hz
         self.spectrum_analyzer.video_bandwidth(1e4)  # Hz
-        self.spectrum_analyzer.reference_level(0)  # dBm
+        self.spectrum_analyzer.reference_level(-10)  # dBm
         self.spectrum_analyzer.center(self.lo_freq)
 
         name = f"iq_calibrator rf_power slot{self.awg.slot_number()} ch{self.awg_i.channel} ch{self.awg_q.channel}"

@@ -165,7 +165,7 @@ class IQCorrector:
         spectrum_analyzer.npts(1001)
         spectrum_analyzer.resolution_bandwidth(5e6)  # Hz
         spectrum_analyzer.video_bandwidth(1e4)  # Hz
-        spectrum_analyzer.reference_level(0)  # dBm
+        spectrum_analyzer.reference_level(-10)  # dBm
         spectrum_analyzer.center(lo_freq)
 
         name = f"iq_corrector check slot{awg.slot_number()} ch{self.awg_i.channel} ch{self.awg_q.channel}"
@@ -199,6 +199,8 @@ class IQCorrector:
         try:
             with measurement.run() as datasaver:
                 datasaver.dataset.add_metadata("wiring", wiring)
+                datasaver.dataset.add_metadata("setup_script", setup_script)
+                datasaver.dataset.add_metadata("script", script)
                 for amp in amps:
                     for if_freq in np.arange(-500 + if_step, 500, if_step):
                         t = np.arange(1000) / 1000
