@@ -6,6 +6,7 @@ import qcodes as qc
 import qcodes.utils.validators as vals
 
 from sequence_parser import Sequence, Variable, Variables
+from sequence_parser.instruction.command import VirtualZ
 from setup_td import *
 
 with open(__file__) as file:
@@ -13,21 +14,24 @@ with open(__file__) as file:
 
 measurement_name = os.path.basename(__file__)
 
-amplitude = Variable("amplitude", np.linspace(0, 1.5, 151), "V")
-variables = Variables([amplitude])
+beta = Variable("beta", np.linspace(0, 0.5, 51), "")
+variables = Variables([beta])
 
-ge_pi_pulse.params["amplitude"] = amplitude
+ge_pi_pulse_drag.params["beta"] = beta
 
-sequence = Sequence([readout_port, ge_port])
-for _ in range(10):
+sequence = Sequence([readout_port, readout_direct_port, ge_port])
+for _ in range(50):
     sequence.call(ge_pi_seq)
+    sequence.add(VirtualZ(np.pi), ge_port)
+    sequence.call(ge_pi_seq)
+    sequence.add(VirtualZ(np.pi), ge_port)
 sequence.call(readout_seq)
 
-amplitude_param = qc.Parameter("amplitude", unit="V")
+beta_param = qc.Parameter("beta")
 s11_param = qc.Parameter("s11", vals=vals.ComplexNumbers())
 measurement = qc.Measurement(experiment, station, measurement_name)
-measurement.register_parameter(amplitude_param)
-measurement.register_parameter(s11_param, setpoints=(amplitude_param,))
+measurement.register_parameter(beta_param)
+measurement.register_parameter(s11_param, setpoints=(beta_param,))
 
 try:
     with measurement.run() as datasaver:
@@ -40,7 +44,7 @@ try:
             data = run(sequence).mean(axis=0)
             s11 = demodulate(data)
             datasaver.add_result(
-                (amplitude_param, amplitude.get_value(update_command)),
+                (beta_param, beta.get_value(update_command)),
                 (s11_param, s11),
             )
 finally:

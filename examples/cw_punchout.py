@@ -5,6 +5,9 @@ import qcodes as qc
 
 from setup_cw import *
 
+with open(__file__) as file:
+    script = file.read()
+
 measurement_name = os.path.basename(__file__)
 
 vna.sweep_type("linear frequency")
@@ -23,6 +26,8 @@ powers = np.linspace(-50, 0, 6)  # dBm
 
 with meas.run() as datasaver:
     datasaver.dataset.add_metadata("wiring", wiring)
+    datasaver.dataset.add_metadata("setup_script", setup_script)
+    datasaver.dataset.add_metadata("script", script)
     for power in powers:
         vna.power(power)
         vna.run_sweep()

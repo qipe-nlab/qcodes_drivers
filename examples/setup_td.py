@@ -8,8 +8,11 @@ from qcodes_drivers.iq_corrector import IQCorrector
 from qcodes_drivers.M3102A import M3102A
 from qcodes_drivers.M3202A import M3202A
 from sequence_parser import Port, Sequence
-from sequence_parser.instruction import (Acquire, Delay, Gaussian, ResetPhase,
-                                         Square)
+from sequence_parser.instruction import (Acquire, Delay, Gaussian, HalfDRAG,
+                                         ResetPhase, Square)
+
+with open(__file__) as file:
+    setup_script = file.read()
 
 experiment_name = "CDY136_TD"
 sample_name = "DPR1-L-120-44"
@@ -43,21 +46,28 @@ ge_if_freq = ge_freq - qubit_lo_freq
 readout_port = Port("readout_port", readout_if_freq / 1e9, max_amp=1.5)
 ge_port = Port("ge_port", ge_if_freq / 1e9, max_amp=1.5)
 
-readout_seq = Sequence()
+readout_phase = ResetPhase(phase=0)
+readout_pulse = Square(amplitude=0, duration=500)
+readout_acquire = Acquire(duration=520)
+readout_seq = Sequence([readout_port, ge_port])
 readout_seq.add(Delay(10), ge_port)
 readout_seq.trigger([readout_port, ge_port])
-readout_seq.add(ResetPhase(np.pi / 2), readout_port)
+readout_seq.add(readout_phase, readout_port, copy=False)
 with readout_seq.align(readout_port, "left"):
-    readout_seq.add(Square(amplitude=1, duration=1000), readout_port)
-    readout_seq.add(Acquire(duration=1000), readout_port)
-readout_pulse = readout_seq.instruction_list[4][0]
+    readout_seq.add(readout_pulse, readout_port, copy=False)
+    readout_seq.add(readout_acquire, readout_port, copy=False)
+readout_seq.trigger([readout_port, ge_port])
+readout_seq.add(Delay(10), ge_port)
 
-ge_pi_seq = Sequence()
-ge_pi_seq.add(Gaussian(amplitude=0.574, fwhm=40, duration=100, zero_end=True), ge_port)
-ge_pi_pulse = ge_pi_seq.instruction_list[0][0]
+ge_pi_pulse = Gaussian(amplitude=0.574, fwhm=40, duration=100, zero_end=True)
+ge_pi_pulse_drag = HalfDRAG(ge_pi_pulse, beta=0.34)
+ge_pi_seq = Sequence([ge_port])
+ge_pi_seq.add(ge_pi_pulse_drag, ge_port, copy=False)
 
-ge_half_pi_seq = Sequence()
-ge_half_pi_seq.add(Gaussian(amplitude=0.287, fwhm=40, duration=100, zero_end=True), ge_port)
+ge_half_pi_pulse = Gaussian(amplitude=0.287, fwhm=40, duration=100, zero_end=True)
+ge_half_pi_pulse_drag = HalfDRAG(ge_half_pi_pulse, beta=0.34)
+ge_half_pi_seq = Sequence([ge_port])
+ge_half_pi_seq.add(ge_half_pi_pulse_drag, ge_port, copy=False)
 
 station = qc.Station()
 
@@ -122,13 +132,15 @@ def load_sequence(sequence: Sequence, cycles: int):
     awg_if1b.queue_waveform(0, trigger="software/hvi", cycles=cycles)
     dig_if1a.cycles(cycles)
     if len(readout_port.measurement_windows) == 0:
-        pass
-    elif len(readout_port.measurement_windows) == 1:
+        acquire_start = 0
+    else:
         acquire_start = int(readout_port.measurement_windows[0][0])
-        acquire_end = int(readout_port.measurement_windows[0][1])
+        acquire_end = int(readout_port.measurement_windows[-1][1])
+        assert acquire_start % dig_if1a.sampling_interval() == 0
+        assert acquire_end % dig_if1a.sampling_interval() == 0
         points_per_cycle = (acquire_end - acquire_start) // dig_if1a.sampling_interval()
         dig_if1a.points_per_cycle(points_per_cycle)
-        dig_if1a.delay(acquire_start // dig_if1a.sampling_interval())
+    dig_if1a.delay(acquire_start // dig_if1a.sampling_interval())
     if ge_port in sequence.port_list:
         i, q = iq_corrector.correct(ge_port.waveform.conj())
         awg.load_waveform(i, 1, append_zeros=True)
@@ -154,9 +166,17 @@ def run(sequence: Sequence):
 
 
 def demodulate(data):
-    t = np.arange(dig_if1a.points_per_cycle()) * dig_if1a.sampling_interval() * 1e-9
+    t = np.arange(data.shape[-1]) * dig_if1a.sampling_interval() * 1e-9
     return (data * np.exp(2j * np.pi * readout_if_freq * t)).mean(axis=-1)
 
+def demodulate_multiple(data):
+    acquire_start = int(readout_port.measurement_windows[0][0])
+    demodulated = []
+    for window in readout_port.measurement_windows:
+        start = (int(window[0]) - acquire_start) // dig_if1a.sampling_interval()
+        end = (int(window[1]) - acquire_start) // dig_if1a.sampling_interval()
+        demodulated.append(demodulate(data[:, start:end]))
+    return demodulated
 
 def stop():
     hvi_trigger.output(False)

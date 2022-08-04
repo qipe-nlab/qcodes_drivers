@@ -4,6 +4,9 @@ import qcodes as qc
 
 from setup_cw import *
 
+with open(__file__) as file:
+    script = file.read()
+
 measurement_name = os.path.basename(__file__)
 
 vna.sweep_type("linear frequency")
@@ -20,6 +23,8 @@ meas.register_parameter(vna.trace, setpoints=(vna.frequencies,))
 
 with meas.run() as datasaver:
     datasaver.dataset.add_metadata("wiring", wiring)
+    datasaver.dataset.add_metadata("setup_script", setup_script)
+    datasaver.dataset.add_metadata("script", script)
     vna.run_sweep()
     datasaver.add_result(
         (vna.frequencies, vna.frequencies()),

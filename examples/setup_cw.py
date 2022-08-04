@@ -4,6 +4,9 @@ import qcodes as qc
 from qcodes_drivers.E82x7 import E82x7
 from qcodes_drivers.N5222A import N5222A
 
+with open(__file__) as file:
+    setup_script = file.read()
+
 experiment_name = "CDY136_CW"
 sample_name = "DPR1-L-120-44"
 qc.initialise_or_create_database_at("D:/your_name/your_project.db")

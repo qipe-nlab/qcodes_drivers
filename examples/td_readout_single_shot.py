@@ -8,6 +8,9 @@ from sequence_parser import Sequence
 
 from setup_td import *
 
+with open(__file__) as file:
+    script = file.read()
+
 measurement_name = os.path.basename(__file__)
 
 sequence_g = Sequence([readout_port])
@@ -30,6 +33,8 @@ measurement.register_parameter(s11_e_param, setpoints=(shot_number_param,))
 try:
     with measurement.run() as datasaver:
         datasaver.dataset.add_metadata("wiring", wiring)
+        datasaver.dataset.add_metadata("setup_script", setup_script)
+        datasaver.dataset.add_metadata("script", script)
         load_sequence(sequence_g, cycles=shot_count)
         s11_g = demodulate(run(sequence_g))
         load_sequence(sequence_e, cycles=shot_count)

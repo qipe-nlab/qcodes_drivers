@@ -8,6 +8,9 @@ import qcodes.utils.validators as vals
 from sequence_parser import Sequence, Variable, Variables
 from setup_td import *
 
+with open(__file__) as file:
+    script = file.read()
+
 measurement_name = os.path.basename(__file__)
 
 amplitude = Variable("amplitude", np.linspace(0, 1.5, 76)[1:], "V")
@@ -31,6 +34,8 @@ measurement.register_parameter(s11_param, setpoints=(amplitude_param, frequency_
 try:
     with measurement.run() as datasaver:
         datasaver.dataset.add_metadata("wiring", wiring)
+        datasaver.dataset.add_metadata("setup_script", setup_script)
+        datasaver.dataset.add_metadata("script", script)
         for update_command in variables.update_command_list:
             sequence.update_variables(update_command)
             load_sequence(sequence, cycles=5000)

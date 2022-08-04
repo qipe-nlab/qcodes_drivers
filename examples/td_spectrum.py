@@ -8,6 +8,9 @@ from sequence_parser import Sequence
 
 from setup_td import *
 
+with open(__file__) as file:
+    script = file.read()
+
 measurement_name = os.path.basename(__file__)
 
 sequence = Sequence([readout_port])
@@ -22,6 +25,8 @@ measurement.register_parameter(s11_param, setpoints=(frequency_param,))
 try:
     with measurement.run() as datasaver:
         datasaver.dataset.add_metadata("wiring", wiring)
+        datasaver.dataset.add_metadata("setup_script", setup_script)
+        datasaver.dataset.add_metadata("script", script)
         load_sequence(sequence, cycles=5000)
         for f in np.linspace(9e9, 11e9, 201):
             lo1.frequency(f - readout_if_freq)

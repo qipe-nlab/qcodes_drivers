@@ -9,6 +9,9 @@ from sequence_parser import Sequence, Variable, Variables
 from sequence_parser.instruction import Delay, VirtualZ
 from setup_td import *
 
+with open(__file__) as file:
+    script = file.read()
+
 measurement_name = os.path.basename(__file__)
 
 lo2.frequency(lo2.frequency() + 1e6)
@@ -32,6 +35,8 @@ measurement.register_parameter(s11_param, setpoints=(delay_param,))
 try:
     with measurement.run() as datasaver:
         datasaver.dataset.add_metadata("wiring", wiring)
+        datasaver.dataset.add_metadata("setup_script", setup_script)
+        datasaver.dataset.add_metadata("script", script)
         for update_command in variables.update_command_list:
             sequence.update_variables(update_command)
             load_sequence(sequence, cycles=5000)

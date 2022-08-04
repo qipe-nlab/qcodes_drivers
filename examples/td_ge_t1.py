@@ -9,6 +9,9 @@ from sequence_parser import Sequence, Variable, Variables
 from sequence_parser.instruction import Delay
 from setup_td import *
 
+with open(__file__) as file:
+    script = file.read()
+
 measurement_name = os.path.basename(__file__)
 
 delay = Variable("delay", np.linspace(0, 250000, 251), "ns")
@@ -28,6 +31,8 @@ measurement.register_parameter(s11_param, setpoints=(delay_param,))
 try:
     with measurement.run() as datasaver:
         datasaver.dataset.add_metadata("wiring", wiring)
+        datasaver.dataset.add_metadata("setup_script", setup_script)
+        datasaver.dataset.add_metadata("script", script)
         for update_command in variables.update_command_list:
             sequence.update_variables(update_command)
             load_sequence(sequence, cycles=5000)

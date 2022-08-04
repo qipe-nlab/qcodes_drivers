@@ -7,6 +7,9 @@ import qcodes as qc
 from sequence_parser import Sequence
 from setup_td import *
 
+with open(__file__) as file:
+    script = file.read()
+
 measurement_name = os.path.basename(__file__)
 
 readout_pulse.params["amplitude"] = 1.5
@@ -27,6 +30,8 @@ measurement.register_parameter(voltage_param, setpoints=(time_param,))
 try:
     with measurement.run() as datasaver:
         datasaver.dataset.add_metadata("wiring", wiring)
+        datasaver.dataset.add_metadata("setup_script", setup_script)
+        datasaver.dataset.add_metadata("script", script)
         load_sequence(sequence, cycles=10000)
         dig_if1a.delay(0)
         dig_if1a.points_per_cycle(points_per_cycle)
