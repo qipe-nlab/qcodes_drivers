@@ -19,8 +19,8 @@ sequence.call(readout_seq)
 frequency_param = qc.Parameter("frequency", unit="GHz")
 s11_param = qc.Parameter("s11", vals=vals.ComplexNumbers())
 measurement = qc.Measurement(experiment, station, measurement_name)
-measurement.register_parameter(frequency_param)
-measurement.register_parameter(s11_param, setpoints=(frequency_param,))
+measurement.register_parameter(frequency_param, paramtype="array")
+measurement.register_parameter(s11_param, setpoints=(frequency_param,), paramtype="array")
 
 try:
     with measurement.run() as datasaver:

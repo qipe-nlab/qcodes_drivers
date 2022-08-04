@@ -20,10 +20,10 @@ drive_source.frequency_stop(8.2e9)
 configure_drive_sweep(vna_freq=9.285e9, points=1001)
 
 meas = qc.Measurement(experiment, station, measurement_name)
-meas.register_parameter(drive_source.frequencies)
-meas.register_parameter(drive_source.power)
+meas.register_parameter(drive_source.frequencies, paramtype="array")
+meas.register_parameter(drive_source.power, paramtype="array")
 meas.register_parameter(
-    vna.trace, setpoints=(drive_source.power, drive_source.frequencies)
+    vna.trace, setpoints=(drive_source.power, drive_source.frequencies), paramtype="array"
 )
 
 powers = np.linspace(-20, 20, 21)  # dBm

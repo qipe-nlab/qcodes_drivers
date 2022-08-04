@@ -18,9 +18,9 @@ vna.points(601)
 vna.if_bandwidth(1000)  # Hz
 
 meas = qc.Measurement(experiment, station, measurement_name)
-meas.register_parameter(vna.frequencies)
-meas.register_parameter(vna.power)
-meas.register_parameter(vna.trace, setpoints=(vna.power, vna.frequencies))
+meas.register_parameter(vna.frequencies, paramtype="array")
+meas.register_parameter(vna.power, paramtype="array")
+meas.register_parameter(vna.trace, setpoints=(vna.power, vna.frequencies), paramtype="array")
 
 powers = np.linspace(-50, 0, 6)  # dBm
 

@@ -24,8 +24,8 @@ time = np.arange(points_per_cycle) * dig_if1a.sampling_interval()
 time_param = qc.Parameter("time", unit="ns")
 voltage_param = qc.Parameter("voltage", unit="V")
 measurement = qc.Measurement(experiment, station, measurement_name)
-measurement.register_parameter(time_param)
-measurement.register_parameter(voltage_param, setpoints=(time_param,))
+measurement.register_parameter(time_param, paramtype="array")
+measurement.register_parameter(voltage_param, setpoints=(time_param,), paramtype="array")
 
 try:
     with measurement.run() as datasaver:

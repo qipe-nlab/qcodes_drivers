@@ -26,9 +26,9 @@ shot_number_param = qc.Parameter("shot_number")
 s11_g_param = qc.Parameter("s11_g", vals=vals.ComplexNumbers())
 s11_e_param = qc.Parameter("s11_e", vals=vals.ComplexNumbers())
 measurement = qc.Measurement(experiment, station, measurement_name)
-measurement.register_parameter(shot_number_param)
-measurement.register_parameter(s11_g_param, setpoints=(shot_number_param,))
-measurement.register_parameter(s11_e_param, setpoints=(shot_number_param,))
+measurement.register_parameter(shot_number_param, paramtype="array")
+measurement.register_parameter(s11_g_param, setpoints=(shot_number_param,), paramtype="array")
+measurement.register_parameter(s11_e_param, setpoints=(shot_number_param,), paramtype="array")
 
 try:
     with measurement.run() as datasaver:

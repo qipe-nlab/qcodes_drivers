@@ -26,8 +26,8 @@ sequence.call(readout_seq)
 amplitude_param = qc.Parameter("amplitude", unit="V")
 s11_param = qc.Parameter("s11", vals=vals.ComplexNumbers())
 measurement = qc.Measurement(experiment, station, measurement_name)
-measurement.register_parameter(amplitude_param)
-measurement.register_parameter(s11_param, setpoints=(amplitude_param,))
+measurement.register_parameter(amplitude_param, paramtype="array")
+measurement.register_parameter(s11_param, setpoints=(amplitude_param,), paramtype="array")
 
 try:
     with measurement.run() as datasaver:

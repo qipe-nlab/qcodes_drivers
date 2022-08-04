@@ -30,8 +30,8 @@ sequence.call(readout_seq)
 delay_param = qc.Parameter("delay", unit="ns")
 s11_param = qc.Parameter("s11", vals=vals.ComplexNumbers())
 measurement = qc.Measurement(experiment, station, measurement_name)
-measurement.register_parameter(delay_param)
-measurement.register_parameter(s11_param, setpoints=(delay_param,))
+measurement.register_parameter(delay_param, paramtype="array")
+measurement.register_parameter(s11_param, setpoints=(delay_param,), paramtype="array")
 
 try:
     with measurement.run() as datasaver:

@@ -18,8 +18,8 @@ vna.points(901)
 vna.if_bandwidth(100)  # Hz
 
 meas = qc.Measurement(experiment, station, measurement_name)
-meas.register_parameter(vna.frequencies)
-meas.register_parameter(vna.trace, setpoints=(vna.frequencies,))
+meas.register_parameter(vna.frequencies, paramtype="array")
+meas.register_parameter(vna.trace, setpoints=(vna.frequencies,), paramtype="array")
 
 with meas.run() as datasaver:
     datasaver.dataset.add_metadata("wiring", wiring)
