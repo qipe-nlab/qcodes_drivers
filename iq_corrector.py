@@ -27,20 +27,20 @@ class IQCorrector:
 
         offset_data = qc.load_by_run_spec(
             captured_run_id=lo_leakage_id
-        ).get_parameter_data()
-        i_name = awg_i.dc_offset.full_name
-        q_name = awg_q.dc_offset.full_name
-        i_offset = offset_data[i_name][i_name][-1]
-        q_offset = offset_data[q_name][q_name][-1]
+        ).to_pandas_dataframe()
+        i_offset = offset_data[awg_i.dc_offset.full_name].values[-1]
+        q_offset = offset_data[awg_q.dc_offset.full_name].values[-1]
         awg_i.dc_offset(i_offset)
         awg_q.dc_offset(q_offset)
 
-        data = qc.load_by_run_spec(captured_run_id=rf_power_id).get_parameter_data()
-        measured_if = data["i_amp"]["if_freq"].astype(int)
-        measured_i_amp = data["i_amp"]["i_amp"]
-        measured_q_amp = data["q_amp"]["q_amp"]
-        measured_theta = data["theta"]["theta"]
-        measured_rf_power = 10 ** (data["rf_power"]["rf_power"] / 10)
+        data = qc.load_by_run_spec(captured_run_id=rf_power_id).to_pandas_dataframe(
+            "i_amp", "q_amp", "theta", "rf_power"
+        )
+        measured_if = data.index.values.astype(int)
+        measured_i_amp = data["i_amp"].values
+        measured_q_amp = data["q_amp"].values
+        measured_theta = data["theta"].values
+        measured_rf_power = 10 ** (data["rf_power"].values / 10)
 
         if_step = measured_if[1] - measured_if[0]
         if_freqs = ifftshift(np.arange(-500, 500, if_step))
@@ -51,8 +51,8 @@ class IQCorrector:
 
         # normalize i_amp and q_amp such that rf_powers are equal
         rf_powers /= min(rf_powers)
-        i_amps /= rf_powers
-        q_amps /= rf_powers
+        i_amps /= np.sqrt(rf_powers)
+        q_amps /= np.sqrt(rf_powers)
 
         def residual(x):
             i_kernel = x.view(complex)[:len_kernel]
@@ -176,31 +176,34 @@ class IQCorrector:
         rf_power_linearity_param = qc.Parameter("rf_power_linearity", unit="mW/V^2")
         lo_leakage_param = qc.Parameter("lo_leakage", unit="dBm")
         image_sideband_param = qc.Parameter("image_sideband", unit="dBm")
-        measurement.register_parameter(amp_param)
-        measurement.register_parameter(if_freq_param)
-        measurement.register_parameter(spectrum_analyzer.freq_axis)
+        measurement.register_parameter(amp_param, paramtype="array")
+        measurement.register_parameter(if_freq_param, paramtype="array")
+        measurement.register_parameter(spectrum_analyzer.freq_axis, paramtype="array")
         measurement.register_parameter(
             spectrum_analyzer.trace,
             setpoints=(amp_param, if_freq_param, spectrum_analyzer.freq_axis),
+            paramtype="array",
         )
         measurement.register_parameter(
-            rf_power_param, setpoints=(amp_param, if_freq_param)
+            rf_power_param, setpoints=(amp_param, if_freq_param), paramtype="array"
         )
         measurement.register_parameter(
-            rf_power_linearity_param, setpoints=(amp_param, if_freq_param)
+            rf_power_linearity_param,
+            setpoints=(amp_param, if_freq_param),
+            paramtype="array",
         )
         measurement.register_parameter(
-            lo_leakage_param, setpoints=(amp_param, if_freq_param)
+            lo_leakage_param, setpoints=(amp_param, if_freq_param), paramtype="array"
         )
         measurement.register_parameter(
-            image_sideband_param, setpoints=(amp_param, if_freq_param)
+            image_sideband_param,
+            setpoints=(amp_param, if_freq_param),
+            paramtype="array",
         )
 
         try:
             with measurement.run() as datasaver:
                 datasaver.dataset.add_metadata("wiring", wiring)
-                datasaver.dataset.add_metadata("setup_script", setup_script)
-                datasaver.dataset.add_metadata("script", script)
                 for amp in amps:
                     for if_freq in np.arange(-500 + if_step, 500, if_step):
                         t = np.arange(1000) / 1000

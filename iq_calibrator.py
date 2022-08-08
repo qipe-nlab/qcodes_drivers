@@ -53,15 +53,17 @@ class IQCalibrator:
         name = f"iq_calibrator lo_leakage slot{self.awg.slot_number()} ch{self.awg_i.channel} ch{self.awg_q.channel}"
         measurement = qc.Measurement(self.experiment, self.station, name)
         iteration_param = qc.Parameter("iteration")
-        measurement.register_parameter(iteration_param)
+        measurement.register_parameter(iteration_param, paramtype="array")
         measurement.register_parameter(
-            self.spectrum_analyzer.trace_mean, setpoints=(iteration_param,)
+            self.spectrum_analyzer.trace_mean,
+            setpoints=(iteration_param,),
+            paramtype="array",
         )
         measurement.register_parameter(
-            self.awg_i.dc_offset, setpoints=(iteration_param,)
+            self.awg_i.dc_offset, setpoints=(iteration_param,), paramtype="array"
         )
         measurement.register_parameter(
-            self.awg_q.dc_offset, setpoints=(iteration_param,)
+            self.awg_q.dc_offset, setpoints=(iteration_param,), paramtype="array"
         )
 
         def measure(i_offset: float, q_offset: float):
@@ -129,20 +131,21 @@ class IQCalibrator:
         i_amp_param = qc.Parameter("i_amp", unit="V")
         q_amp_param = qc.Parameter("q_amp", unit="V")
         theta_param = qc.Parameter("theta", unit="rad")
-        measurement.register_parameter(if_freq_param)
-        measurement.register_parameter(iteration_param)
+        measurement.register_parameter(if_freq_param, paramtype="array")
+        measurement.register_parameter(iteration_param, paramtype="array")
         measurement.register_parameter(
             self.spectrum_analyzer.trace_mean,
             setpoints=(if_freq_param, iteration_param),
+            paramtype="array",
         )
         measurement.register_parameter(
-            i_amp_param, setpoints=(if_freq_param, iteration_param)
+            i_amp_param, setpoints=(if_freq_param, iteration_param), paramtype="array"
         )
         measurement.register_parameter(
-            q_amp_param, setpoints=(if_freq_param, iteration_param)
+            q_amp_param, setpoints=(if_freq_param, iteration_param), paramtype="array"
         )
         measurement.register_parameter(
-            theta_param, setpoints=(if_freq_param, iteration_param)
+            theta_param, setpoints=(if_freq_param, iteration_param), paramtype="array"
         )
 
         def measure(if_freq: int, i_amp: float, q_amp: float, theta: float):
@@ -210,16 +213,27 @@ class IQCalibrator:
         q_amp_param = qc.Parameter("q_amp", unit="V")
         theta_param = qc.Parameter("theta", unit="rad")
         rf_power_param = qc.Parameter("rf_power", unit="dBm")
-        measurement.register_parameter(if_freq_param)
-        measurement.register_parameter(self.spectrum_analyzer.freq_axis)
+        measurement.register_parameter(if_freq_param, paramtype="array")
+        measurement.register_parameter(
+            self.spectrum_analyzer.freq_axis, paramtype="array"
+        )
         measurement.register_parameter(
             self.spectrum_analyzer.trace,
             setpoints=(if_freq_param, self.spectrum_analyzer.freq_axis),
+            paramtype="array",
         )
-        measurement.register_parameter(rf_power_param, setpoints=(if_freq_param,))
-        measurement.register_parameter(i_amp_param, setpoints=(if_freq_param,))
-        measurement.register_parameter(q_amp_param, setpoints=(if_freq_param,))
-        measurement.register_parameter(theta_param, setpoints=(if_freq_param,))
+        measurement.register_parameter(
+            rf_power_param, setpoints=(if_freq_param,), paramtype="array"
+        )
+        measurement.register_parameter(
+            i_amp_param, setpoints=(if_freq_param,), paramtype="array"
+        )
+        measurement.register_parameter(
+            q_amp_param, setpoints=(if_freq_param,), paramtype="array"
+        )
+        measurement.register_parameter(
+            theta_param, setpoints=(if_freq_param,), paramtype="array"
+        )
 
         try:
             with measurement.run() as datasaver:

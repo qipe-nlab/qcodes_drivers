@@ -66,7 +66,7 @@ class E4407B(VisaInstrument):
         # self._max_freq: float
         self._additional_wait: float = 1
         self._min_freq = 9e3
-        self._max_freq = 13.8e9 # self._valid_max_freq[opt]
+        self._max_freq = 26.5e9 # self._valid_max_freq[opt]
 
         self.add_parameter(
             name="mode",
