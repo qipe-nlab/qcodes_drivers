@@ -12,13 +12,13 @@ sample_name = "DPR1-L-120-44"
 qc.initialise_or_create_database_at("D:/your_name/your_project.db")
 experiment = qc.load_or_create_experiment(experiment_name, sample_name)
 
-wiring = """
-N5222A_port1 - 1500mm - 20dB - In1C
-E8257D_MY51111550 - 1500mm - 10dB - 20dB - In1B
-Out1A - Miteq - 1500mm - N5222A_port2
-N5222A_aux_trig1_out - E8257D_MY51111550_trigger_in
-E8257D_MY51111550_source_settled - N5222A_meas_trig_in
-"""
+wiring = "\n".join([
+    "N5222A_port1 - 1500mm - 20dB - In1C",
+    "E8257D_MY51111550 - 1500mm - 10dB - 20dB - In1B",
+    "Out1A - Miteq - 1500mm - N5222A_port2",
+    "N5222A_aux_trig1_out - E8257D_MY51111550_trigger_in",
+    "E8257D_MY51111550_source_settled - N5222A_meas_trig_in",
+])
 
 station = qc.Station()
 
