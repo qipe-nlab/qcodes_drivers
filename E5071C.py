@@ -11,6 +11,6 @@ class E5071C(Ena):
             min_power=-85,
             max_power=10,
             num_ports=2,
-            timeout=5.,  # wait for at most 5 seconds before the measurement finishes
+            timeout=timeout,  # time in seconds to wait for the measurement to finish
             **kwargs,
         )
