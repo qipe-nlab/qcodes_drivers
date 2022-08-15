@@ -82,7 +82,7 @@ class IQCalibrator:
 
         x0 = 0  # initial guess for i_offset
         x1 = 0  # initial guess for q_offset
-        d = 0.01  # initial step size
+        d = 0.1  # initial step size
 
         with measurement.run() as datasaver:
             datasaver.dataset.add_metadata("wiring", self.wiring)
@@ -164,10 +164,10 @@ class IQCalibrator:
             iteration += 1
             return 10 ** (dbm / 10)
 
-        x0 = 1  # initial guess for q_amp
+        x0 = self.i_amp  # initial guess for q_amp
         x1 = 0  # initial guess for theta
-        d0 = 0.01  # initial step size for q_amp
-        d1 = 0.01  # initial step size for theta
+        d0 = -0.1 * self.i_amp  # initial step size for q_amp
+        d1 = 0.1  # initial step size for theta
         self.q_amps = np.full(len(self.if_freqs), np.nan)
         self.thetas = np.full(len(self.if_freqs), np.nan)
 
@@ -190,6 +190,8 @@ class IQCalibrator:
                     measure(
                         self.if_freqs[i], self.i_amp, self.q_amps[i], self.thetas[i]
                     )
+                    d0 = 0.01
+                    d1 = 0.01
         finally:
             self.awg.stop_all()
 
