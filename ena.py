@@ -348,6 +348,7 @@ class Ena(VisaInstrument):
                 "unwrapped phase": "UPH",
                 "real": "REAL",
                 "imag": "IMAG",
+                "polar": "POL",
             },
         )
 
@@ -360,9 +361,12 @@ class Ena(VisaInstrument):
 
 
     def _get_trace(self) -> np.ndarray:
+        format = self.format()
+        self.format("polar")
         data = self.visa_handle.query_binary_values(
-            "CALC:TRAC:DATA:SDAT?", datatype="d", is_big_endian=True
+            "CALC:TRAC:DATA:FDAT?", datatype="d", is_big_endian=True
         )
+        self.format(format)
         return np.array(data).view(complex)
 
     def run_sweep(self):

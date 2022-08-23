@@ -19,21 +19,21 @@ sample_name = "DPR1-L-120-44"
 qc.initialise_or_create_database_at("D:/your_name/your_project.db")
 experiment = qc.load_or_create_experiment(experiment_name, sample_name)
 
-wiring = """
-E8257D(lo1) - 1500mm - LO1
-Out1A - Miteq - 1500mm - RFin1A
-IFout1A - 24in - M3102A_slot9_ch1
-M3202A_slot4_ch1 - 24in - 10dB - IFin1B
-RFout1B - 1500mm - 10dB - 20dB - F-19480 - Coupler0dB - In1C
-E8257D(drive_source) - 20dB - 20dB - 1500mm - Coupler20dB - In1C
-SGS3 - 2000mm - LO2
-M3202A_slot4_ch2 - 24in - 3dB - 10dB - Iin2
-M3202A_slot4_ch3 - 24in - 3dB - 10dB - Qin2
-RFout2 - 3dB - 1500mm - Coupler10dB - F-80-9000-7-R - In1B
-SGS4 - 2000mm - LO3
-M3202A_slot4_ch4 - 24in - 10dB - IFin3
-RFout3 - 1500mm - Coupler0dB - F-80-9000-7-R - In1B
-"""
+wiring = "\n".join([
+    "E8257D(lo1) - 1500mm - LO1",
+    "Out1A - Miteq - 1500mm - RFin1A",
+    "IFout1A - 24in - M3102A_slot9_ch1",
+    "M3202A_slot4_ch1 - 24in - 10dB - IFin1B",
+    "RFout1B - 1500mm - 10dB - 20dB - F-19480 - Coupler0dB - In1C",
+    "E8257D(drive_source) - 20dB - 20dB - 1500mm - Coupler20dB - In1C",
+    "SGS3 - 2000mm - LO2",
+    "M3202A_slot4_ch2 - 24in - 3dB - 10dB - Iin2",
+    "M3202A_slot4_ch3 - 24in - 3dB - 10dB - Qin2",
+    "RFout2 - 3dB - 1500mm - Coupler10dB - F-80-9000-7-R - In1B",
+    "SGS4 - 2000mm - LO3",
+    "M3202A_slot4_ch4 - 24in - 10dB - IFin3",
+    "RFout3 - 1500mm - Coupler0dB - F-80-9000-7-R - In1B",
+])
 
 electrical_delay = 42e-9  # sec
 

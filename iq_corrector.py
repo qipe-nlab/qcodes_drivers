@@ -49,6 +49,10 @@ class IQCorrector:
         thetas = np.interp(if_freqs, measured_if, measured_theta, period=1000)
         rf_powers = np.interp(if_freqs, measured_if, measured_rf_power, period=1000)
 
+        max_amp = max(max(i_amps), max(q_amps))
+        i_amps /= max_amp
+        q_amps /= max_amp
+
         # normalize i_amp and q_amp such that rf_powers are equal
         rf_powers /= min(rf_powers)
         i_amps /= np.sqrt(rf_powers)
