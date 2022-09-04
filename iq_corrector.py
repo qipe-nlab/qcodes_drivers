@@ -162,6 +162,7 @@ class IQCorrector:
         lo_freq: float,  # Hz
         if_step: int,  # MHz
         amps: NDArray[np.float64],
+        reference_level=0,  # dBm
     ):
         assert spectrum_analyzer.external_frequency_reference()
         spectrum_analyzer.cont_meas(False)
@@ -169,7 +170,7 @@ class IQCorrector:
         spectrum_analyzer.npts(1001)
         spectrum_analyzer.resolution_bandwidth(5e6)  # Hz
         spectrum_analyzer.video_bandwidth(1e4)  # Hz
-        spectrum_analyzer.reference_level(-10)  # dBm
+        spectrum_analyzer.reference_level(reference_level)  # dBm
         spectrum_analyzer.center(lo_freq)
 
         name = f"iq_corrector check slot{awg.slot_number()} ch{self.awg_i.channel} ch{self.awg_q.channel}"

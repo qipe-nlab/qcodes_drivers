@@ -21,6 +21,8 @@ class IQCalibrator:
         if_lo: int,  # MHz
         if_hi: int,  # MHz
         if_step: int,  # MHz
+        reference_level_rf=0,  # dBm
+        reference_level_leakage=-30,  # dBm
         i_amp=1.0,  # V
     ):
         self.experiment = experiment
@@ -40,6 +42,8 @@ class IQCalibrator:
         if_freqs = np.arange(if_lo, if_hi + if_step, if_step)
         self.if_freqs = if_freqs[if_freqs != 0]
 
+        self.reference_level_rf = reference_level_rf
+        self.reference_level_leakage = reference_level_leakage
         self.i_amp = i_amp
 
     def minimize_lo_leakage(self, awg_resolution=1e-4):
@@ -47,7 +51,7 @@ class IQCalibrator:
         self.spectrum_analyzer.npts(101)
         self.spectrum_analyzer.resolution_bandwidth(1e4)  # Hz
         self.spectrum_analyzer.video_bandwidth(1e4)  # Hz
-        self.spectrum_analyzer.reference_level(-30)  # dBm
+        self.spectrum_analyzer.reference_level(self.reference_level_leakage)  # dBm
         self.spectrum_analyzer.center(self.lo_freq)
 
         name = f"iq_calibrator lo_leakage slot{self.awg.slot_number()} ch{self.awg_i.channel} ch{self.awg_q.channel}"
@@ -122,7 +126,7 @@ class IQCalibrator:
         self.spectrum_analyzer.npts(101)
         self.spectrum_analyzer.resolution_bandwidth(1e4)  # Hz
         self.spectrum_analyzer.video_bandwidth(1e4)  # Hz
-        self.spectrum_analyzer.reference_level(-30)  # dBm
+        self.spectrum_analyzer.reference_level(self.reference_level_leakage)  # dBm
 
         name = f"iq_calibrator image_sideband slot{self.awg.slot_number()} ch{self.awg_i.channel} ch{self.awg_q.channel}"
         measurement = qc.Measurement(self.experiment, self.station, name)
@@ -205,7 +209,7 @@ class IQCalibrator:
         self.spectrum_analyzer.npts(1001)
         self.spectrum_analyzer.resolution_bandwidth(5e6)  # Hz
         self.spectrum_analyzer.video_bandwidth(1e4)  # Hz
-        self.spectrum_analyzer.reference_level(-10)  # dBm
+        self.spectrum_analyzer.reference_level(self.reference_level_rf)  # dBm
         self.spectrum_analyzer.center(self.lo_freq)
 
         name = f"iq_calibrator rf_power slot{self.awg.slot_number()} ch{self.awg_i.channel} ch{self.awg_q.channel}"
