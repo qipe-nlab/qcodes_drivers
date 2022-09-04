@@ -146,6 +146,15 @@ class PxiVna(VisaInstrument):
             val_mapping={"linear frequency": "LIN", "power": "POW", "cw time": "CW"},
         )
 
+        self.automatic_sweep_time = Parameter(
+            name="automatic_sweep_time",
+            instrument=self,
+            get_cmd="SENS:SWE:TIME:AUTO?",
+            set_cmd="SENS:SWE:TIME:AUTO {}",
+            val_mapping={True: 1, False: 0},
+        )
+
+
         # for all sweep_types
         self.points = Parameter(
             name="points",
