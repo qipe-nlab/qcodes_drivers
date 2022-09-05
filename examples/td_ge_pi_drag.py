@@ -44,7 +44,7 @@ try:
             data = run(sequence).mean(axis=0)
             s11 = demodulate(data)
             datasaver.add_result(
-                (beta_param, beta.get_value(update_command)),
+                (beta_param, sequence.variable_dict["beta"][0].value),
                 (s11_param, s11),
             )
 finally:

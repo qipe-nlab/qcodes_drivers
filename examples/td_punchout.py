@@ -44,9 +44,9 @@ try:
                 data = run(sequence).mean(axis=0)
                 s11 = demodulate(data) * np.exp(-2j * np.pi * f * electrical_delay)
                 datasaver.add_result(
-                    (amplitude_param, amplitude.get_value(update_command)),
+                    (amplitude_param, sequence.variable_dict["amplitude"][0].value),
                     (frequency_param, f),
-                    (s11_param, s11 / amplitude.get_value(update_command)),
+                    (s11_param, s11 / sequence.variable_dict["amplitude"][0].value),
                 )
 finally:
     stop()
