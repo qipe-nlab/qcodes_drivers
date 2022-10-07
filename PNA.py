@@ -467,8 +467,8 @@ class PNA(VisaInstrument):
         """
         self.output(True)
         self.trigger()
-
         try:
+            time.sleep(self.sweep_time())
             while not self.done():
                 time.sleep(0.1)
         finally:
