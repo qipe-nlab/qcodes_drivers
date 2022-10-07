@@ -3,6 +3,7 @@ import os
 import numpy as np
 import qcodes as qc
 from qcodes.instrument_drivers.yokogawa.GS200 import GS200
+from tqdm import tqdm
 
 from setup_cw import *
 
@@ -30,7 +31,7 @@ with meas.run() as datasaver:
     datasaver.dataset.add_metadata("wiring", wiring)
     datasaver.dataset.add_metadata("setup_script", setup_script)
     datasaver.dataset.add_metadata("script", script)
-    for current in np.linspace(-100e-6, 100e-6, 201):
+    for current in tqdm(np.linspace(-100e-6, 100e-6, 201)):
         current_source.ramp_current(current, step=1e-8, delay=0)
         vna.run_sweep()
         datasaver.add_result(

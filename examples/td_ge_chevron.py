@@ -14,23 +14,20 @@ with open(__file__) as file:
 
 measurement_name = os.path.basename(__file__)
 
-amplitude = Variable("amplitude", np.linspace(0, 1.5, 76)[1:], "V")
-variables = Variables([amplitude])
+duration = Variable("duration", np.linspace(100, 2100, 101), "ns")
+variables = Variables([duration])
 
-readout_pulse.params["amplitude"] = amplitude
-
-sequence = Sequence([readout_port])
+sequence = Sequence(ports)
+sequence.add(Square(amplitude=0.1, duration=duration), ge_port)
 sequence.call(readout_seq)
 
-hvi_trigger.trigger_period(10000)  # ns
-
-amplitude_param = qc.Parameter("amplitude", unit="V")
-frequency_param = qc.Parameter("frequency", unit="GHz")
+frequency_param = qc.Parameter("frequency", unit="Hz")
+duration_param = qc.Parameter("duration", unit="ns")
 s11_param = qc.Parameter("s11", vals=vals.ComplexNumbers())
 measurement = qc.Measurement(experiment, station, measurement_name)
-measurement.register_parameter(amplitude_param, paramtype="array")
 measurement.register_parameter(frequency_param, paramtype="array")
-measurement.register_parameter(s11_param, setpoints=(amplitude_param, frequency_param), paramtype="array")
+measurement.register_parameter(duration_param, paramtype="array")
+measurement.register_parameter(s11_param, setpoints=(frequency_param, duration_param), paramtype="array")
 
 try:
     with measurement.run() as datasaver:
@@ -39,15 +36,15 @@ try:
         datasaver.dataset.add_metadata("script", script)
         for update_command in tqdm(variables.update_command_list):
             sequence.update_variables(update_command)
-            load_sequence(sequence, cycles=5000)
-            for f in tqdm(np.linspace(9e9, 11e9, 201), leave=False):
-                lo1.frequency(f - readout_if_freq)
+            for f in tqdm(np.linspace(8.06e9, 8.08e9, 21), leave=False):  # Hz
+                ge_port.if_freq = (f - qubit_lo_freq) / 1e9
+                load_sequence(sequence, cycles=2000)
                 data = run(sequence).mean(axis=0)
-                s11 = demodulate(data) * np.exp(-2j * np.pi * f * electrical_delay)
+                s11 = demodulate(data)
                 datasaver.add_result(
-                    (amplitude_param, sequence.variable_dict["amplitude"][0].value),
                     (frequency_param, f),
-                    (s11_param, s11 / sequence.variable_dict["amplitude"][0].value),
+                    (duration_param, sequence.variable_dict["duration"][0].value),
+                    (s11_param, s11),
                 )
 finally:
     stop()

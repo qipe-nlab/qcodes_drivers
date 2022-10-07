@@ -4,8 +4,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import qcodes as qc
 import qcodes.utils.validators as vals
-
 from sequence_parser import Sequence, Variable, Variables
+from tqdm import tqdm
+
 from setup_td import *
 
 with open(__file__) as file:
@@ -34,7 +35,7 @@ try:
         datasaver.dataset.add_metadata("wiring", wiring)
         datasaver.dataset.add_metadata("setup_script", setup_script)
         datasaver.dataset.add_metadata("script", script)
-        for update_command in variables.update_command_list:
+        for update_command in tqdm(variables.update_command_list):
             sequence.update_variables(update_command)
             load_sequence(sequence, cycles=5000)
             data = run(sequence).mean(axis=0)

@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 import qcodes as qc
+from tqdm import tqdm
 
 from setup_cw import *
 
@@ -32,7 +33,7 @@ with meas.run() as datasaver:
     datasaver.dataset.add_metadata("wiring", wiring)
     datasaver.dataset.add_metadata("setup_script", setup_script)
     datasaver.dataset.add_metadata("script", script)
-    for power in powers:
+    for power in tqdm(powers):
         drive_source.power(power)
         run_drive_sweep()
         datasaver.add_result(

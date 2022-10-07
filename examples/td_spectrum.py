@@ -5,6 +5,7 @@ import numpy as np
 import qcodes as qc
 import qcodes.utils.validators as vals
 from sequence_parser import Sequence
+from tqdm import tqdm
 
 from setup_td import *
 
@@ -28,7 +29,7 @@ try:
         datasaver.dataset.add_metadata("setup_script", setup_script)
         datasaver.dataset.add_metadata("script", script)
         load_sequence(sequence, cycles=5000)
-        for f in np.linspace(9e9, 11e9, 201):
+        for f in tqdm(np.linspace(9e9, 11e9, 201)):
             lo1.frequency(f - readout_if_freq)
             data = run(sequence).mean(axis=0)
             s11 = demodulate(data) * np.exp(-2j * np.pi * f * electrical_delay)
