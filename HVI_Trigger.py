@@ -1,4 +1,5 @@
 import os
+import sys
 from multiprocessing.connection import Client
 from subprocess import CREATE_NEW_CONSOLE, Popen
 from typing import Any
@@ -47,7 +48,7 @@ class HVI_Trigger(Instrument):
         try:
             self.hvi_daemon = Client(address)
         except ConnectionRefusedError:
-            Popen("cmd /k py hvi_daemon.py", creationflags=CREATE_NEW_CONSOLE, cwd=os.path.dirname(__file__))
+            Popen(f"cmd /k {sys.executable} hvi_daemon.py", creationflags=CREATE_NEW_CONSOLE, cwd=os.path.dirname(__file__))
             self.hvi_daemon = Client(address)
 
         # open HVI file
