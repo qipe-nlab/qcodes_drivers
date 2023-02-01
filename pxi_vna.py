@@ -482,6 +482,8 @@ class PxiVna(VisaInstrument):
                 "unwrapped phase": "UPH",
                 "real": "REAL",
                 "imag": "IMAG",
+                "polar": "POL",
+                "smith": "SMIT",
             },
         )
 
@@ -496,9 +498,12 @@ class PxiVna(VisaInstrument):
 
 
     def _get_trace(self) -> np.ndarray:
+        format = self.format()
+        self.format("polar")
         data = self.visa_handle.query_binary_values(
-            "CALC:MEAS1:DATA:SDATA?", datatype="d", is_big_endian=True
+            "CALC:MEAS1:DATA:FDATA?", datatype="d", is_big_endian=True
         )
+        self.format(format)
         return np.array(data).view(complex)
 
     def _set_meas_trigger_ready_pxi_line(self, line_str: str):
