@@ -16,3 +16,4 @@ class M9804A(PxiVna):
             num_ports=2,
             **kwargs,
         )
+        self.power = self.port1.power
