@@ -406,7 +406,7 @@ class PxiVna(VisaInstrument):
             docstring='set trigger_source = "external" before setting this parameter',
         )
         meas_trigger_input_source_mapping = {f"pxi{n}": f"TRIG{n}" for n in range(8)}
-        meas_trigger_input_source_mapping["ctrl s"] = "CTRL_S"
+        meas_trigger_input_source_mapping["ctrl s port 1"] = "CTRL_S"
         self.meas_trigger_input_source = Parameter(
             name="meas_trigger_input_source",
             instrument=self,
@@ -459,6 +459,51 @@ class PxiVna(VisaInstrument):
             val_mapping={"low": "LOW", "high": "HIGH"},
         )
 
+        # aux trig 1
+        self.aux_trig_1_output_enabled = Parameter(
+            name="aux_trig_1_enabled",
+            instrument=self,
+            get_cmd="TRIG:CHAN:AUX?",
+            set_cmd="TRIG:CHAN:AUX {}",
+            val_mapping={True: 1, False: 0},
+        )
+        self.aux_trig_1_output_polarity = Parameter(
+            name="aux_trig_1_output_polarity",
+            instrument=self,
+            get_cmd="TRIG:CHAN:AUX:OUTP:POL?",
+            set_cmd="TRIG:CHAN:AUX:OUTP:POL {}",
+            val_mapping={"negative": "NEG", "positive": "POS"},
+        )
+        self.aux_trig_1_output_position = Parameter(
+            name="aux_trig_1_output_position",
+            instrument=self,
+            get_cmd="TRIG:CHAN:AUX:OUTP:POS?",
+            set_cmd="TRIG:CHAN:AUX:OUTP:POS {}",
+            val_mapping={"before": "BEF", "after": "AFT"},
+        )
+        self.aux_trig_1_output_interval = Parameter(
+            name="aux_trig_1_output_interval",
+            instrument=self,
+            get_cmd="TRIG:CHAN:AUX:OUTP:INT?",
+            set_cmd="TRIG:CHAN:AUX:OUTP:INT {}",
+            val_mapping={"point": "POIN", "sweep": "SWE"},
+        )
+
+        self.ctrl_s_port_4_function = Parameter(
+            name="ctrl_s_port_4_function",
+            instrument=self,
+            get_cmd="CONT:SIGN:KDMI:SUB4:FUNC?",
+            get_parser=lambda s: s[1:-1],
+            set_cmd='CONT:SIGN:KDMI:SUB3:FUNC "{}"',
+            val_mapping={
+                "aux trig 1 output": "TRIGGER_OUT",
+                "arbitrary input": "INPUT",
+                "low output": "LOW",
+                "high output": "HIGH",
+                "per channel": "CHANNEL_CTRL",
+            },
+        )
+
         self.add_function(
             name="manual_trigger",
             call_cmd="INIT",
@@ -468,6 +513,13 @@ class PxiVna(VisaInstrument):
             instrument=self,
             get_cmd="TRIG:STAT:READ? ANY",
             val_mapping={True: "1", False: "0"},
+        )
+        self.done = Parameter(
+            name="done",
+            instrument=self,
+            get_cmd="*OPC?",
+            get_parser=int,
+            val_mapping={True: 1, False: 0},
         )
 
         self.format = Parameter(
