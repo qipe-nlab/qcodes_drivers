@@ -123,13 +123,6 @@ class E82x7(VisaInstrument):
             set_cmd="TRIG:SLOP {}",
             val_mapping={"positive": "POS", "negative": "NEG"},
         )
-        self.source_settled_polarity = Parameter(
-            name="source_settled_polarity",
-            instrument=self,
-            get_cmd="OUTP:SETT:POL?",
-            set_cmd="OUTP:SETT:POL {}",
-            val_mapping={"low": "NORM", "high": "INV"},
-        )
 
         self.add_function(
             name="start_sweep",

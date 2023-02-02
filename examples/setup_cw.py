@@ -32,7 +32,6 @@ station.add_component(vna)
 
 drive_source = E82x7("drive_source", "TCPIP0::192.168.101.43::inst0::INSTR")
 drive_source.trigger_input_slope("negative")
-drive_source.source_settled_polarity("low")
 station.add_component(drive_source)
 
 
