@@ -94,7 +94,7 @@ class PxiVna(VisaInstrument):
         )
         self.preset()
 
-        trigger_manager_name = f"{name} meas trig ready"
+        trigger_manager_name = f"{name}_meas_trig_ready"
         chassis_address = f"PXI{pxi_interface}::{chassis}::BACKPLANE"
         trigger_manager = PxiTriggerManager(trigger_manager_name, chassis_address)
         self.add_submodule("trigger_manager", trigger_manager)
