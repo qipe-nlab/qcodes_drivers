@@ -19,7 +19,7 @@ variables = Variables([amplitude])
 
 ge_pi_pulse.params["amplitude"] = amplitude
 
-sequence = Sequence([readout_port, ge_port])
+sequence = Sequence(ports)
 for _ in range(10):
     sequence.call(ge_pi_seq)
 sequence.call(readout_seq)

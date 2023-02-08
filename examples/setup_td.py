@@ -24,15 +24,11 @@ wiring = "\n".join([
     "Out1A - Miteq - 1500mm - RFin1A",
     "IFout1A - 24in - M3102A_slot9_ch1",
     "M3202A_slot4_ch1 - 24in - 10dB - IFin1B",
-    "RFout1B - 1500mm - 10dB - 20dB - F-19480 - Coupler0dB - In1C",
-    "E8257D(drive_source) - 20dB - 20dB - 1500mm - Coupler20dB - In1C",
+    "RFout1B - 1500mm - 10dB - 20dB - F-19480 - In1C",
     "SGS3 - 2000mm - LO2",
     "M3202A_slot4_ch2 - 24in - 3dB - 10dB - Iin2",
     "M3202A_slot4_ch3 - 24in - 3dB - 10dB - Qin2",
-    "RFout2 - 3dB - 1500mm - Coupler10dB - F-80-9000-7-R - In1B",
-    "SGS4 - 2000mm - LO3",
-    "M3202A_slot4_ch4 - 24in - 10dB - IFin3",
-    "RFout3 - 1500mm - Coupler0dB - F-80-9000-7-R - In1B",
+    "RFout2 - 3dB - 1500mm - F-80-9000-7-R - In1B",
 ])
 
 electrical_delay = 42e-9  # sec
@@ -45,13 +41,14 @@ ge_if_freq = ge_freq - qubit_lo_freq
 
 readout_port = Port("readout_port", readout_if_freq / 1e9, max_amp=1.5)
 ge_port = Port("ge_port", ge_if_freq / 1e9, max_amp=1.5)
+ports = [readout_port, ge_port]
 
 readout_phase = ResetPhase(phase=0)
 readout_pulse = Square(amplitude=0, duration=500)
 readout_acquire = Acquire(duration=520)
-readout_seq = Sequence([readout_port, ge_port])
+readout_seq = Sequence(ports)
 readout_seq.add(Delay(10), ge_port)
-readout_seq.trigger([readout_port, ge_port])
+readout_seq.trigger(ports)
 readout_seq.add(readout_phase, readout_port, copy=False)
 with readout_seq.align(readout_port, "left"):
     readout_seq.add(readout_pulse, readout_port, copy=False)
@@ -61,12 +58,12 @@ readout_seq.add(Delay(10), ge_port)
 
 ge_pi_pulse = Gaussian(amplitude=0.574, fwhm=40, duration=100, zero_end=True)
 ge_pi_pulse_drag = HalfDRAG(ge_pi_pulse, beta=0.34)
-ge_pi_seq = Sequence([ge_port])
+ge_pi_seq = Sequence(ports)
 ge_pi_seq.add(ge_pi_pulse_drag, ge_port, copy=False)
 
 ge_half_pi_pulse = Gaussian(amplitude=0.287, fwhm=40, duration=100, zero_end=True)
 ge_half_pi_pulse_drag = HalfDRAG(ge_half_pi_pulse, beta=0.34)
-ge_half_pi_seq = Sequence([ge_port])
+ge_half_pi_seq = Sequence(ports)
 ge_half_pi_seq.add(ge_half_pi_pulse_drag, ge_port, copy=False)
 
 station = qc.Station()
@@ -83,10 +80,6 @@ lo2.frequency(qubit_lo_freq)
 lo2.power(18)  # dBm
 station.add_component(lo2)
 
-drive_source = E82x7("drive_source", "TCPIP0::192.168.101.41::inst0::INSTR")
-drive_source.output(False)
-station.add_component(drive_source)
-
 hvi_trigger = HVI_Trigger("hvi_trigger", "PXI0::1::BACKPLANE", debug=True)
 hvi_trigger.output(False)
 hvi_trigger.digitizer_delay(390)  # ns
@@ -100,16 +93,15 @@ station.add_component(awg)
 awg_if1b = awg.ch1
 awg_i2 = awg.ch2
 awg_q2 = awg.ch3
-awg_if3 = awg.ch4
 
-iq_corrector = IQCorrector(
-    awg_i2,
-    awg_q2,
-    lo_leakage_id=498,
-    rf_power_id=500,
-    len_kernel=41,
-    fit_weight=10,
-)
+# iq_corrector = IQCorrector(
+#     awg_i2,
+#     awg_q2,
+#     lo_leakage_id=498,
+#     rf_power_id=500,
+#     len_kernel=41,
+#     fit_weight=10,
+# )
 
 dig = M3102A("dig", chassis=1, slot=9)
 dig.channels.stop()
@@ -142,7 +134,12 @@ def load_sequence(sequence: Sequence, cycles: int):
         dig_if1a.points_per_cycle(points_per_cycle)
     dig_if1a.delay(acquire_start // dig_if1a.sampling_interval())
     if ge_port in sequence.port_list:
-        i, q = iq_corrector.correct(ge_port.waveform.conj())
+        waveform = ge_port.waveform.conj()
+        try:
+            i, q = iq_corrector.correct(waveform)
+        except NameError:
+            i = waveform.real
+            q = waveform.imag
         awg.load_waveform(i, 1, append_zeros=True)
         awg.load_waveform(q, 2, append_zeros=True)
         awg_i2.queue_waveform(1, trigger="software/hvi", cycles=cycles)
@@ -184,4 +181,3 @@ def stop():
     dig_if1a.stop()
     lo1.output(False)
     lo2.off()
-    drive_source.output(False)

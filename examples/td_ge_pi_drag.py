@@ -20,7 +20,7 @@ variables = Variables([beta])
 
 ge_pi_pulse_drag.params["beta"] = beta
 
-sequence = Sequence([readout_port, readout_direct_port, ge_port])
+sequence = Sequence(ports)
 for _ in range(50):
     sequence.call(ge_pi_seq)
     sequence.add(VirtualZ(np.pi), ge_port)

@@ -14,7 +14,7 @@ with open(__file__) as file:
 
 measurement_name = os.path.basename(__file__)
 
-sequence = Sequence([readout_port])
+sequence = Sequence(ports)
 sequence.call(readout_seq)
 
 frequency_param = qc.Parameter("frequency", unit="GHz")

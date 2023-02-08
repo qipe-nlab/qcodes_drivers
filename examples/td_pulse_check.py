@@ -13,7 +13,7 @@ with open(__file__) as file:
 measurement_name = os.path.basename(__file__)
 
 readout_pulse.params["amplitude"] = 1.5
-sequence = Sequence([readout_port])
+sequence = Sequence(ports)
 sequence.call(readout_seq)
 
 hvi_trigger.digitizer_delay(0)

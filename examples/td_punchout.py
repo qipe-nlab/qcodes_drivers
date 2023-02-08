@@ -19,7 +19,7 @@ variables = Variables([amplitude])
 
 readout_pulse.params["amplitude"] = amplitude
 
-sequence = Sequence([readout_port])
+sequence = Sequence(ports)
 sequence.call(readout_seq)
 
 hvi_trigger.trigger_period(10000)  # ns

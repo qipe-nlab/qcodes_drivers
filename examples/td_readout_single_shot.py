@@ -13,10 +13,10 @@ with open(__file__) as file:
 
 measurement_name = os.path.basename(__file__)
 
-sequence_g = Sequence([readout_port])
+sequence_g = Sequence(ports)
 sequence_g.call(readout_seq)
 
-sequence_e = Sequence([readout_port, ge_port])
+sequence_e = Sequence(ports)
 sequence_e.call(ge_pi_seq)
 sequence_e.call(readout_seq)
 

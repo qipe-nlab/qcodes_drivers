@@ -18,7 +18,7 @@ measurement_name = os.path.basename(__file__)
 delay = Variable("delay", np.linspace(0, 250000, 251), "ns")
 variables = Variables([delay])
 
-sequence = Sequence([readout_port, ge_port])
+sequence = Sequence(ports)
 sequence.call(ge_pi_seq)
 sequence.add(Delay(delay), ge_port)
 sequence.call(readout_seq)
