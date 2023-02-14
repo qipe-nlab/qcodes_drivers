@@ -2,15 +2,12 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
-import qcodes as qc
+from plottr.data.datadict_storage import DataDict, DDH5Writer
 
 from sequence_parser import Sequence
 from setup_td import *
 
-with open(__file__) as file:
-    script = file.read()
-
-measurement_name = os.path.basename(__file__)
+measurement_name = os.path.basename(__file__)[:-3]
 
 readout_pulse.params["amplitude"] = 1.5
 sequence = Sequence(ports)
@@ -21,24 +18,21 @@ hvi_trigger.digitizer_delay(0)
 points_per_cycle = 1000
 time = np.arange(points_per_cycle) * dig_if1a.sampling_interval()
 
-time_param = qc.Parameter("time", unit="ns")
-voltage_param = qc.Parameter("voltage", unit="V")
-measurement = qc.Measurement(experiment, station, measurement_name)
-measurement.register_parameter(time_param, paramtype="array")
-measurement.register_parameter(voltage_param, setpoints=(time_param,), paramtype="array")
+data = DataDict(
+    time=dict(unit="ns"),
+    voltage=dict(unit="V", axes=["time"]),
+)
+data.validate()
 
-try:
-    with measurement.run() as datasaver:
-        datasaver.dataset.add_metadata("wiring", wiring)
-        datasaver.dataset.add_metadata("setup_script", setup_script)
-        datasaver.dataset.add_metadata("script", script)
-        load_sequence(sequence, cycles=10000)
-        dig_if1a.delay(0)
-        dig_if1a.points_per_cycle(points_per_cycle)
-        data = run(sequence).mean(axis=0) * dig_if1a.voltage_step()
-        datasaver.add_result(
-            (time_param, time),
-            (voltage_param, data),
-        )
-finally:
-    stop()
+with DDH5Writer(data, data_path, name=measurement_name) as writer:
+    writer.add_tag(tags)
+    writer.backup_file([__file__, setup_file])
+    writer.save_text("wiring.md", wiring)
+    writer.save_dict("station_snapshot.json", station.snapshot())
+    load_sequence(sequence, cycles=10000)
+    dig_if1a.delay(0)
+    dig_if1a.points_per_cycle(points_per_cycle)
+    writer.add_data(
+        time=time,
+        voltage=run(sequence).mean(axis=0) * dig_if1a.voltage_step(),
+    )

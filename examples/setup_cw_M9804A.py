@@ -1,17 +1,14 @@
 import time
 
 import qcodes as qc
+from qcodes.instrument_drivers.yokogawa.GS200 import GS200
+
 from qcodes_drivers.E82x7 import E82x7
 from qcodes_drivers.M9804A import M9804A
 
-with open(__file__) as file:
-    setup_script = file.read()
-
-experiment_name = "CDK122_CW"
-sample_name = "DPR3-I-1-31"
-qc.initialise_or_create_database_at("D:/your_name/your_project.db")
-experiment = qc.load_or_create_experiment(experiment_name, sample_name)
-
+setup_file = __file__
+tags = ["CW", "CDY136", "DPR1-L-120-44"]
+data_path = "D:/your-folder/data/"
 wiring = "\n".join([
     "M9804A_port1 - 1500mm - 20dB - In1C",
     "E8257D_MY43321225 - 1000mm - 20dB - In1B",
@@ -35,6 +32,10 @@ station.add_component(vna)
 drive_source = E82x7("drive_source", "TCPIP0::192.168.100.5::inst0::INSTR")
 drive_source.trigger_input_slope("negative")
 station.add_component(drive_source)
+
+current_source = GS200("current_source", "TCPIP0::192.168.100.99::inst0::INSTR")
+current_source.ramp_current(0e-6, step=1e-7, delay=0)
+station.add_component(current_source)
 
 
 def configure_drive_sweep(vna_freq: float, points: int):

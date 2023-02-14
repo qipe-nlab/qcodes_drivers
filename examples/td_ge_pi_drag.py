@@ -2,18 +2,14 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
-import qcodes as qc
-import qcodes.utils.validators as vals
+from plottr.data.datadict_storage import DataDict, DDH5Writer
 from sequence_parser import Sequence, Variable, Variables
 from sequence_parser.instruction.command import VirtualZ
 from tqdm import tqdm
 
 from setup_td import *
 
-with open(__file__) as file:
-    script = file.read()
-
-measurement_name = os.path.basename(__file__)
+measurement_name = os.path.basename(__file__)[:-3]
 
 beta = Variable("beta", np.linspace(0, 0.5, 51), "")
 variables = Variables([beta])
@@ -28,25 +24,21 @@ for _ in range(50):
     sequence.add(VirtualZ(np.pi), ge_port)
 sequence.call(readout_seq)
 
-beta_param = qc.Parameter("beta")
-s11_param = qc.Parameter("s11", vals=vals.ComplexNumbers())
-measurement = qc.Measurement(experiment, station, measurement_name)
-measurement.register_parameter(beta_param, paramtype="array")
-measurement.register_parameter(s11_param, setpoints=(beta_param,), paramtype="array")
+data = DataDict(
+    beta=dict(unit="ns"),
+    s11=dict(axes=["beta"]),
+)
+data.validate()
 
-try:
-    with measurement.run() as datasaver:
-        datasaver.dataset.add_metadata("wiring", wiring)
-        datasaver.dataset.add_metadata("setup_script", setup_script)
-        datasaver.dataset.add_metadata("script", script)
-        for update_command in tqdm(variables.update_command_list):
-            sequence.update_variables(update_command)
-            load_sequence(sequence, cycles=5000)
-            data = run(sequence).mean(axis=0)
-            s11 = demodulate(data)
-            datasaver.add_result(
-                (beta_param, sequence.variable_dict["beta"][0].value),
-                (s11_param, s11),
-            )
-finally:
-    stop()
+with DDH5Writer(data, data_path, name=measurement_name) as writer:
+    writer.add_tag(tags)
+    writer.backup_file([__file__, setup_file])
+    writer.save_text("wiring.md", wiring)
+    writer.save_dict("station_snapshot.json", station.snapshot())
+    for update_command in tqdm(variables.update_command_list):
+        sequence.update_variables(update_command)
+        load_sequence(sequence, cycles=5000)
+        writer.add_data(
+            beta=sequence.variable_dict["beta"][0].value,
+            s11=demodulate(run(sequence).mean(axis=0)),
+        )

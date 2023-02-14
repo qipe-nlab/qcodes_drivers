@@ -1,7 +1,9 @@
 import numpy as np
 import qcodes as qc
+from plottr.data.datadict_storage import DataDict, DDH5Writer
 from qcodes.instrument_drivers.rohde_schwarz.SGS100A import \
     RohdeSchwarz_SGS100A
+
 from qcodes_drivers.E82x7 import E82x7
 from qcodes_drivers.HVI_Trigger import HVI_Trigger
 from qcodes_drivers.iq_corrector import IQCorrector
@@ -11,14 +13,9 @@ from sequence_parser import Port, Sequence
 from sequence_parser.instruction import (Acquire, Delay, Gaussian, HalfDRAG,
                                          ResetPhase, Square)
 
-with open(__file__) as file:
-    setup_script = file.read()
-
-experiment_name = "CDY136_TD"
-sample_name = "DPR1-L-120-44"
-qc.initialise_or_create_database_at("D:/your_name/your_project.db")
-experiment = qc.load_or_create_experiment(experiment_name, sample_name)
-
+setup_file = __file__
+tags = ["TD", "CDY136", "DPR1-L-120-44"]
+data_path = "D:/your-folder/data/"
 wiring = "\n".join([
     "E8257D(lo1) - 1500mm - LO1",
     "Out1A - Miteq - 1500mm - RFin1A",
@@ -147,24 +144,32 @@ def load_sequence(sequence: Sequence, cycles: int):
 
 
 def run(sequence: Sequence):
-    lo1.output(True)
-    awg_if1b.start()
-    dig_if1a.start()
-    if ge_port in sequence.port_list:
-        lo2.on()
-        awg_i2.start()
-        awg_q2.start()
-    hvi_trigger.output(True)
-    data = dig_if1a.read()
-    awg.stop_all()
-    dig_if1a.stop()
-    hvi_trigger.output(False)
-    return data
+    try:
+        lo1.output(True)
+        awg_if1b.start()
+        dig_if1a.start()
+        if ge_port in sequence.port_list:
+            lo2.on()
+            awg_i2.start()
+            awg_q2.start()
+        hvi_trigger.output(True)
+        data = dig_if1a.read()
+        awg.stop_all()
+        dig_if1a.stop()
+        hvi_trigger.output(False)
+        return data
+    finally:
+        hvi_trigger.output(False)
+        awg.stop_all()
+        dig_if1a.stop()
+        lo1.output(False)
+        lo2.off()
 
 
 def demodulate(data):
     t = np.arange(data.shape[-1]) * dig_if1a.sampling_interval() * 1e-9
     return (data * np.exp(2j * np.pi * readout_if_freq * t)).mean(axis=-1)
+
 
 def demodulate_multiple(data):
     acquire_start = int(readout_port.measurement_windows[0][0])
@@ -174,10 +179,3 @@ def demodulate_multiple(data):
         end = (int(window[1]) - acquire_start) // dig_if1a.sampling_interval()
         demodulated.append(demodulate(data[:, start:end]))
     return demodulated
-
-def stop():
-    hvi_trigger.output(False)
-    awg.stop_all()
-    dig_if1a.stop()
-    lo1.output(False)
-    lo2.off()
