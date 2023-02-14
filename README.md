@@ -12,9 +12,10 @@
 - Try examples in https://github.com/qipe-nlab/qcodes_drivers/tree/main/examples
 
 - Plot data using https://github.com/toolsforexperiments/plottr
+  (see https://toolsforexperiments-manual.readthedocs.io/en/latest/plottr/apps.html)
   ```
   py -m pip install plottr[PyQt5]
-  plottr-inspectr
+  plottr-monitr
   ```
 
 - To use HVI_Trigger, there must be an AWG in slot #2 of the PXI chassis
