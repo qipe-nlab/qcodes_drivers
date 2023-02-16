@@ -69,6 +69,13 @@ class AuxTrigger(InstrumentChannel):
             set_cmd=f"TRIG:CHAN:AUX{n}:POS {{}}",
             val_mapping={"before": "BEF", "after": "AFT"},
         )
+        self.aux_trigger_mode = Parameter(
+            name="aux_trigger_mode",
+            instrument=self,
+            get_cmd=f"TRIG:CHAN:AUX{n}:INT?",
+            set_cmd=f"TRIG:CHAN:AUX{n}:INT {{}}",
+            val_mapping={"point": "POIN", "sweep": "SWE"},
+        )
 
 
 class PNA(VisaInstrument):
@@ -283,6 +290,15 @@ class PNA(VisaInstrument):
             docstring="Getting this does NOT initiate a sweep. You can set custom setpoints by assigning to trace.setpoints.",
         )
 
+        self.trace_wo_freqsetpoint = Parameter(
+            name="trace_wo_freqsetpoint",
+            instrument=self,
+            get_cmd=self._get_trace,
+            unit="",
+            vals=Arrays(shape=(self.points.cache,), valid_types=(complex,)),
+            docstring="Getting this does NOT initiate a sweep. You can set custom setpoints by assigning to trace.setpoints.",
+        )
+
         self.if_bandwidth = Parameter(
             name="if_bandwidth",
             instrument=self,
@@ -396,6 +412,14 @@ class PNA(VisaInstrument):
             get_cmd="CONT:SIGN:TRIG:ATBA?",
             set_cmd="CONT:SIGN:TRIG:ATBA {}",
             val_mapping={True: "1", False: "0"},
+        )
+        self.meas_trigger_input_delay = Parameter(
+            name="meas_trigger_input_delay",
+            instrument=self,
+            get_cmd="SENS:SWE:TRIG:DEL?",
+            set_cmd="SENS:SWE:TRIG:DEL {}",
+            unit="s",
+            vals=Numbers(0,3)
         )
 
         self.add_function(
