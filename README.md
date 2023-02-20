@@ -9,7 +9,7 @@
 - Try examples in https://github.com/qipe-nlab/qcodes_drivers/tree/main/examples
 
 - Plot data using https://github.com/toolsforexperiments/plottr
-  (see https://toolsforexperiments-manual.readthedocs.io/en/latest/plottr/apps.html)
+  (for usage manual, see https://toolsforexperiments-manual.readthedocs.io/en/latest/plottr/apps.html)
   ```
   pip install "plottr[PyQt5] @ git+https://github.com/toolsforexperiments/plottr.git" 
   plottr-monitr
