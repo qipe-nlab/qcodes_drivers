@@ -12,7 +12,7 @@
   (for usage manual, see https://toolsforexperiments-manual.readthedocs.io/en/latest/plottr/apps.html)
   ```
   pip install "plottr[PyQt5] @ git+https://github.com/toolsforexperiments/plottr.git" 
-  plottr-monitr
+  plottr-monitr D:\data-folder
   ```
 
 - To use HVI_Trigger, there must be an AWG in slot #2 of the PXI chassis
