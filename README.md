@@ -3,9 +3,6 @@
 ## Getting started
 
 - Install QCoDeS: https://qcodes.github.io/Qcodes/start/index.html
-  ```
-  py -m pip install qcodes
-  ```
 
 - Clone this repository into your working directory
 
