@@ -14,7 +14,7 @@
 - Plot data using https://github.com/toolsforexperiments/plottr
   (see https://toolsforexperiments-manual.readthedocs.io/en/latest/plottr/apps.html)
   ```
-  py -m pip install plottr[PyQt5]
+  pip install "plottr[PyQt5] @ git+https://github.com/toolsforexperiments/plottr.git" 
   plottr-monitr
   ```
 
