@@ -131,7 +131,7 @@ def load_sequence(sequence: Sequence, cycles: int):
         dig_if1a.points_per_cycle(points_per_cycle)
     dig_if1a.delay(acquire_start // dig_if1a.sampling_interval())
     if ge_port in sequence.port_list:
-        waveform = ge_port.waveform.conj()
+        waveform = ge_port.waveform
         try:
             i, q = iq_corrector.correct(waveform)
         except NameError:
