@@ -579,12 +579,5 @@ class PxiVna(VisaInstrument):
         try:
             while self.sweep_mode() != "hold":
                 time.sleep(0.1)
-        except KeyboardInterrupt as e:
-            # add troubleshooting info and re-raise the exception
-            self.output(False)
-            mode = self.sweep_mode()
-            source = self.trigger_source()
-            e.message += f" (sweep_mode = {mode}, trigger_source = {source})"
-            raise e
         finally:
             self.output(False)
