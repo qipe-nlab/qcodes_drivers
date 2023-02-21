@@ -2,20 +2,50 @@
 
 ## Getting started
 
-- Install QCoDeS: https://qcodes.github.io/Qcodes/start/index.html
+- Install [QCoDeS](https://qcodes.github.io/Qcodes/start/index.html).
 
-- Clone this repository into your working directory
-
-- Try examples in https://github.com/qipe-nlab/qcodes_drivers/tree/main/examples
-
-- Plot data using https://github.com/toolsforexperiments/plottr
-  (for usage manual, see https://toolsforexperiments-manual.readthedocs.io/en/latest/plottr/apps.html)
+- Install [plottr](https://github.com/toolsforexperiments/plottr):
   ```
-  pip install "plottr[PyQt5] @ git+https://github.com/toolsforexperiments/plottr.git" 
+  pip install "plottr[PyQt5] @ git+https://github.com/toolsforexperiments/plottr.git"
+  ```
+
+- Try this to test your installation:
+  ```
+  import qcodes as qc
+  from plottr.data.datadict_storage import DataDict, DDH5Writer, search_datadict
+  from qcodes.tests.instrument_mocks import DummyInstrument
+
+  basedir = "D:\\data-folder"
+  station = qc.Station()
+  station.add_component(DummyInstrument())
+  data = DataDict(x=dict(), y=dict(axes=["x"]))
+
+  with DDH5Writer(data, basedir, name="test") as writer:
+      writer.backup_file(__file__)
+      writer.add_tag("test_tag")
+      writer.save_dict("station_snapshot.json", station.snapshot())
+      writer.save_text("note.md", "this is a test")
+      writer.add_data(x=[1, 2, 3, 4], y=[1, 2, 3, 4])
+
+  foldername, datadict = search_datadict(basedir, "2023-02-21", name="test")
+  print(foldername, datadict["x"]["values"], datadict["y"]["values"])
+  ```
+
+- Plot data using plottr ([manual](https://toolsforexperiments-manual.readthedocs.io/en/latest/plottr/apps.html)):
+  ```
   plottr-monitr D:\data-folder
   ```
 
-- To use HVI_Trigger, there must be an AWG in slot #2 of the PXI chassis
+- Install qcodes_drivers:
+  ```
+  pip install git+https://github.com/qipe-nlab/qcodes_drivers.git
+  ```
+
+- For time-domain experiments, install [sequence_parser](https://github.com/qipe-nlab/sequence_parser)
+
+- Try [the examples](https://github.com/qipe-nlab/qcodes_drivers/tree/main/examples)
+
+- To use `HVI_Trigger`, there must be an AWG in slot #2 of the PXI chassis
 
 ## Other places to look for instrument drivers
 
