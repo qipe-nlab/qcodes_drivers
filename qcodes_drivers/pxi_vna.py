@@ -571,7 +571,7 @@ class PxiVna(VisaInstrument):
         self.output(True)
         if self.average():
             self.group_trigger_count(self.average_count())
-            self.sweep_mode("group")
+            self.sweep_mode("groups")
         else:
             self.sweep_mode("single")
 
