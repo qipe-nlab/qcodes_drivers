@@ -8,6 +8,11 @@
   ```
   pip install "plottr[PyQt5] @ git+https://github.com/toolsforexperiments/plottr.git"
   ```
+  To use `search_datadict`, install our fork:
+  ```
+  pip install "plottr[PyQt5] @ git+https://github.com/qipe-nlab/plottr.git@search-datadict"
+  ```
+  until [the pull request](https://github.com/toolsforexperiments/plottr/pull/379) is merged.
 
 - Try this to test your installation:
   ```
