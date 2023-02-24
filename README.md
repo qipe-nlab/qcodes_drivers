@@ -15,7 +15,7 @@
   until [the pull request](https://github.com/toolsforexperiments/plottr/pull/379) is merged.
 
 - Try this to test your installation:
-  ```
+  ```python
   import qcodes as qc
   from plottr.data.datadict_storage import DataDict, DDH5Writer, search_datadict
   from qcodes.tests.instrument_mocks import DummyInstrument
@@ -26,7 +26,7 @@
   data = DataDict(x=dict(), y=dict(axes=["x"]))
 
   with DDH5Writer(data, basedir, name="test") as writer:
-      writer.backup_file(__file__)
+      writer.backup_file(__file__)  # delete this line if you are in a Jupyter Notebook
       writer.add_tag("test_tag")
       writer.save_dict("station_snapshot.json", station.snapshot())
       writer.save_text("note.md", "this is a test")
@@ -55,7 +55,7 @@
 ## Other places to look for instrument drivers
 
 - Drivers in https://github.com/QCoDeS/Qcodes/tree/master/qcodes/instrument_drivers already come with QCoDeS:
-  ```
+  ```python
   from qcodes.instrument_drivers.Manufacturer.InstrumentName import InstrumentClass
   ```
 
