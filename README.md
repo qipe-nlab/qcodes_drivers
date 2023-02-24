@@ -32,7 +32,7 @@
       writer.save_text("note.md", "this is a test")
       writer.add_data(x=[1, 2, 3, 4], y=[1, 2, 3, 4])
 
-  foldername, datadict = search_datadict(basedir, "2023-02-21", name="test")
+  foldername, datadict = search_datadict(basedir, "2023-02-21", name="test")  # use today's date
   print(foldername, datadict["x"]["values"], datadict["y"]["values"])
   ```
 
