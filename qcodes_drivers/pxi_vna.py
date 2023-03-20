@@ -494,7 +494,7 @@ class PxiVna(VisaInstrument):
             instrument=self,
             get_cmd="CONT:SIGN:KDMI:SUB4:FUNC?",
             get_parser=lambda s: s[1:-1],
-            set_cmd='CONT:SIGN:KDMI:SUB3:FUNC "{}"',
+            set_cmd='CONT:SIGN:KDMI:SUB4:FUNC "{}"',
             val_mapping={
                 "aux trig 1 output": "TRIGGER_OUT",
                 "arbitrary input": "INPUT",
