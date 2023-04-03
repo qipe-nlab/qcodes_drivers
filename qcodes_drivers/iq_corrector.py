@@ -1,8 +1,10 @@
+from typing import Sequence
+
 import matplotlib.pyplot as plt
 import numpy as np
 import qcodes as qc
 from numpy.typing import NDArray
-from qcodes.dataset.experiment_container import Experiment
+from plottr.data.datadict_storage import DataDict, DDH5Writer, search_datadict
 from scipy.fft import fft, fftfreq, fftshift, ifftshift
 from scipy.ndimage import convolve
 from scipy.optimize import least_squares
@@ -16,8 +18,9 @@ class IQCorrector:
         self,
         awg_i: SD_AWG_CHANNEL,
         awg_q: SD_AWG_CHANNEL,
-        lo_leakage_id: int,
-        rf_power_id: int,
+        data_path: str,
+        lo_leakage_datetime: str,
+        rf_power_datetime: str,
         len_kernel=41,
         fit_weight=10,
         plot=False,
@@ -25,22 +28,18 @@ class IQCorrector:
         self.awg_i = awg_i
         self.awg_q = awg_q
 
-        offset_data = qc.load_by_run_spec(
-            captured_run_id=lo_leakage_id
-        ).to_pandas_dataframe()
-        i_offset = offset_data[awg_i.dc_offset.full_name].values[-1]
-        q_offset = offset_data[awg_q.dc_offset.full_name].values[-1]
+        _, datadict = search_datadict(data_path, lo_leakage_datetime)
+        i_offset = datadict["i_offset"]["values"][-1]
+        q_offset = datadict["q_offset"]["values"][-1]
         awg_i.dc_offset(i_offset)
         awg_q.dc_offset(q_offset)
 
-        data = qc.load_by_run_spec(captured_run_id=rf_power_id).to_pandas_dataframe(
-            "i_amp", "q_amp", "theta", "rf_power"
-        )
-        measured_if = data.index.values.astype(int)
-        measured_i_amp = data["i_amp"].values
-        measured_q_amp = data["q_amp"].values
-        measured_theta = data["theta"].values
-        measured_rf_power = 10 ** (data["rf_power"].values / 10)
+        _, datadict = search_datadict(data_path, rf_power_datetime)
+        measured_if = datadict["if_freq"]["values"]
+        measured_i_amp = datadict["i_amp"]["values"]
+        measured_q_amp = datadict["q_amp"]["values"]
+        measured_theta = datadict["theta"]["values"]
+        measured_rf_power = 10 ** (datadict["rf_power"]["values"] / 10)
 
         if_step = measured_if[1] - measured_if[0]
         if_freqs = ifftshift(np.arange(-500, 500, if_step))
@@ -154,7 +153,8 @@ class IQCorrector:
 
     def check(
         self,
-        experiment: Experiment,
+        files: Sequence[str],
+        data_path: str,
         wiring: str,
         station: qc.Station,
         awg: M3202A,
@@ -173,42 +173,37 @@ class IQCorrector:
         spectrum_analyzer.reference_level(reference_level)  # dBm
         spectrum_analyzer.center(lo_freq)
 
+        data = DataDict(
+            amplitude=dict(unit="V"),
+            if_freq=dict(unit="MHz"),
+            lo_leakage=dict(unit="dBm", axis=["amplitude", "if_freq"]),
+            image_sideband=dict(unit="dBm", axes=["amplitude", "if_freq"]),
+            rf_power=dict(unit="dBm", axes=["amplitude", "if_freq"]),
+            rf_power_per_amplitude_squared=dict(unit="mW/V", axes=["amplitude", "if_freq"]),
+        )
+        data.validate()
+
+        spectrum_data = DataDict(
+            amplitude=dict(unit="V"),
+            if_freq=dict(unit="MHz"),
+            frequency=dict(unit="Hz"),
+            power=dict(unit="dBm", axes=["amplitude", "if_freq", "frequency"]),
+        )
+        spectrum_data.validate()
+
         name = f"iq_corrector check slot{awg.slot_number()} ch{self.awg_i.channel} ch{self.awg_q.channel}"
-        measurement = qc.Measurement(experiment, station, name)
-        amp_param = qc.Parameter("amp", unit="V")
-        if_freq_param = qc.Parameter("if_freq", unit="MHz")
-        rf_power_param = qc.Parameter("rf_power", unit="dBm")
-        rf_power_linearity_param = qc.Parameter("rf_power_linearity", unit="mW/V^2")
-        lo_leakage_param = qc.Parameter("lo_leakage", unit="dBm")
-        image_sideband_param = qc.Parameter("image_sideband", unit="dBm")
-        measurement.register_parameter(amp_param, paramtype="array")
-        measurement.register_parameter(if_freq_param, paramtype="array")
-        measurement.register_parameter(spectrum_analyzer.freq_axis, paramtype="array")
-        measurement.register_parameter(
-            spectrum_analyzer.trace,
-            setpoints=(amp_param, if_freq_param, spectrum_analyzer.freq_axis),
-            paramtype="array",
-        )
-        measurement.register_parameter(
-            rf_power_param, setpoints=(amp_param, if_freq_param), paramtype="array"
-        )
-        measurement.register_parameter(
-            rf_power_linearity_param,
-            setpoints=(amp_param, if_freq_param),
-            paramtype="array",
-        )
-        measurement.register_parameter(
-            lo_leakage_param, setpoints=(amp_param, if_freq_param), paramtype="array"
-        )
-        measurement.register_parameter(
-            image_sideband_param,
-            setpoints=(amp_param, if_freq_param),
-            paramtype="array",
-        )
+        spectrum_name = f"iq_corrector check spectrum slot{awg.slot_number()} ch{self.awg_i.channel} ch{self.awg_q.channel}"
 
         try:
-            with measurement.run() as datasaver:
-                datasaver.dataset.add_metadata("wiring", wiring)
+            with DDH5Writer(data, data_path, name=name) as writer, \
+                    DDH5Writer(spectrum_data, data_path, name=spectrum_name) as spectrum_writer:
+                writer.backup_file(files + [__file__])
+                writer.save_text("wiring.md", wiring)
+                writer.save_dict("station_snapshot.json", station.snapshot())
+                spectrum_writer.backup_file(files + [__file__])
+                spectrum_writer.save_text("wiring.md", wiring)
+                spectrum_writer.save_dict("station_snapshot.json", station.snapshot())
+
                 for amp in amps:
                     for if_freq in np.arange(-500 + if_step, 500, if_step):
                         t = np.arange(1000) / 1000
@@ -225,21 +220,19 @@ class IQCorrector:
                         awg.start_all()
                         trace = spectrum_analyzer.trace()
                         rf_power = trace[500 + if_freq]
-                        datasaver.add_result(
-                            (amp_param, amp),
-                            (if_freq_param, if_freq),
-                            (
-                                spectrum_analyzer.freq_axis,
-                                spectrum_analyzer.freq_axis(),
-                            ),
-                            (spectrum_analyzer.trace, trace),
-                            (rf_power_param, rf_power),
-                            (
-                                rf_power_linearity_param,
-                                10 ** (rf_power / 10) / amp**2,
-                            ),
-                            (lo_leakage_param, trace[500]),
-                            (image_sideband_param, trace[500 - if_freq]),
+                        writer.add_data(
+                            amplitude=amp,
+                            if_freq=if_freq,
+                            lo_leakage=trace[500],
+                            image_sideband=trace[500 - if_freq],
+                            rf_power=rf_power,
+                            rf_power_per_amplitude_squared=10 ** (rf_power / 10) / amp**2
+                        )
+                        spectrum_writer.add_data(
+                            amplitude=amp,
+                            if_freq=if_freq,
+                            frequency=spectrum_analyzer.freq_axis(),
+                            power=trace,
                         )
         finally:
             awg.stop_all()

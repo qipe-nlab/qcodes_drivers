@@ -1,8 +1,10 @@
+from typing import Sequence
+
 import numpy as np
+import qcodes as qc
+from plottr.data.datadict_storage import DataDict, DDH5Writer
 from scipy.optimize import minimize
 
-import qcodes as qc
-from qcodes.dataset.experiment_container import Experiment
 from qcodes_drivers.E4407B import E4407B
 from qcodes_drivers.M3202A import M3202A, SD_AWG_CHANNEL
 
@@ -10,7 +12,8 @@ from qcodes_drivers.M3202A import M3202A, SD_AWG_CHANNEL
 class IQCalibrator:
     def __init__(
         self,
-        experiment: Experiment,
+        files: Sequence[str],
+        data_path: str,
         wiring: str,
         station: qc.Station,
         awg: M3202A,
@@ -25,7 +28,8 @@ class IQCalibrator:
         reference_level_leakage=-30,  # dBm
         i_amp=1.0,  # V
     ):
-        self.experiment = experiment
+        self.files = files
+        self.data_path = data_path
         self.wiring = wiring
         self.station = station
         self.awg = awg
@@ -54,43 +58,40 @@ class IQCalibrator:
         self.spectrum_analyzer.reference_level(self.reference_level_leakage)  # dBm
         self.spectrum_analyzer.center(self.lo_freq)
 
-        name = f"iq_calibrator lo_leakage slot{self.awg.slot_number()} ch{self.awg_i.channel} ch{self.awg_q.channel}"
-        measurement = qc.Measurement(self.experiment, self.station, name)
-        iteration_param = qc.Parameter("iteration")
-        measurement.register_parameter(iteration_param, paramtype="array")
-        measurement.register_parameter(
-            self.spectrum_analyzer.trace_mean,
-            setpoints=(iteration_param,),
-            paramtype="array",
+        data = DataDict(
+            iteration=dict(),
+            i_offset=dict(unit="V", axes=["iteration"]),
+            q_offset=dict(unit="V", axes=["iteration"]),
+            lo_leakage=dict(unit="dBm", axes=["iteration"]),
         )
-        measurement.register_parameter(
-            self.awg_i.dc_offset, setpoints=(iteration_param,), paramtype="array"
-        )
-        measurement.register_parameter(
-            self.awg_q.dc_offset, setpoints=(iteration_param,), paramtype="array"
-        )
-
-        def measure(i_offset: float, q_offset: float):
-            nonlocal iteration
-            self.awg_i.dc_offset(i_offset)
-            self.awg_q.dc_offset(q_offset)
-            dbm = self.spectrum_analyzer.trace_mean()
-            datasaver.add_result(
-                (iteration_param, iteration),
-                (self.awg_i.dc_offset, i_offset),
-                (self.awg_q.dc_offset, q_offset),
-                (self.spectrum_analyzer.trace_mean, dbm),
-            )
-            iteration += 1
-            return 10 ** (dbm / 10)
+        data.validate()
 
         x0 = 0  # initial guess for i_offset
         x1 = 0  # initial guess for q_offset
         d = 0.1  # initial step size
 
-        with measurement.run() as datasaver:
-            datasaver.dataset.add_metadata("wiring", self.wiring)
+        name = f"iq_calibrator lo_leakage slot{self.awg.slot_number()} ch{self.awg_i.channel} ch{self.awg_q.channel}"
+
+        with DDH5Writer(data, self.data_path, name=name) as writer:
+            writer.backup_file(self.files + [__file__])
+            writer.save_text("wiring.md", self.wiring)
+            writer.save_dict("station_snapshot.json", self.station.snapshot())
             iteration = 0
+    
+            def measure(i_offset: float, q_offset: float):
+                nonlocal iteration
+                self.awg_i.dc_offset(i_offset)
+                self.awg_q.dc_offset(q_offset)
+                dbm = self.spectrum_analyzer.trace_mean()
+                writer.add_data(
+                    iteration=iteration,
+                    i_offset=i_offset,
+                    q_offset=q_offset,
+                    lo_leakage=dbm,
+                )
+                iteration += 1
+                return 10 ** (dbm / 10)
+
             self.i_offset, self.q_offset = minimize(
                 lambda iq_offsets: measure(*iq_offsets),
                 [x0, x1],
@@ -128,45 +129,15 @@ class IQCalibrator:
         self.spectrum_analyzer.video_bandwidth(1e4)  # Hz
         self.spectrum_analyzer.reference_level(self.reference_level_leakage)  # dBm
 
-        name = f"iq_calibrator image_sideband slot{self.awg.slot_number()} ch{self.awg_i.channel} ch{self.awg_q.channel}"
-        measurement = qc.Measurement(self.experiment, self.station, name)
-        if_freq_param = qc.Parameter("if_freq", unit="MHz")
-        iteration_param = qc.Parameter("iteration")
-        i_amp_param = qc.Parameter("i_amp", unit="V")
-        q_amp_param = qc.Parameter("q_amp", unit="V")
-        theta_param = qc.Parameter("theta", unit="rad")
-        measurement.register_parameter(if_freq_param, paramtype="array")
-        measurement.register_parameter(iteration_param, paramtype="array")
-        measurement.register_parameter(
-            self.spectrum_analyzer.trace_mean,
-            setpoints=(if_freq_param, iteration_param),
-            paramtype="array",
+        data = DataDict(
+            if_freq=dict(unit="MHz"),
+            iteration=dict(),
+            i_amp=dict(axes=["if_freq", "iteration"]),
+            q_amp=dict(axes=["if_freq", "iteration"]),
+            theta=dict(axes=["if_freq", "iteration"]),
+            image_sideband=dict(unit="dBm", axes=["if_freq", "iteration"]),
         )
-        measurement.register_parameter(
-            i_amp_param, setpoints=(if_freq_param, iteration_param), paramtype="array"
-        )
-        measurement.register_parameter(
-            q_amp_param, setpoints=(if_freq_param, iteration_param), paramtype="array"
-        )
-        measurement.register_parameter(
-            theta_param, setpoints=(if_freq_param, iteration_param), paramtype="array"
-        )
-
-        def measure(if_freq: int, i_amp: float, q_amp: float, theta: float):
-            nonlocal iteration
-            self.output_if(if_freq, i_amp, q_amp, theta)
-            self.spectrum_analyzer.center(self.lo_freq - if_freq * 1e6)
-            dbm = self.spectrum_analyzer.trace_mean()
-            datasaver.add_result(
-                (if_freq_param, if_freq),
-                (iteration_param, iteration),
-                (i_amp_param, i_amp),
-                (q_amp_param, q_amp),
-                (theta_param, theta),
-                (self.spectrum_analyzer.trace_mean, dbm),
-            )
-            iteration += 1
-            return 10 ** (dbm / 10)
+        data.validate()
 
         x0 = self.i_amp  # initial guess for q_amp
         x1 = 0  # initial guess for theta
@@ -175,11 +146,33 @@ class IQCalibrator:
         self.q_amps = np.full(len(self.if_freqs), np.nan)
         self.thetas = np.full(len(self.if_freqs), np.nan)
 
+        name = f"iq_calibrator image_sideband slot{self.awg.slot_number()} ch{self.awg_i.channel} ch{self.awg_q.channel}"
+
         try:
-            with measurement.run() as datasaver:
-                datasaver.dataset.add_metadata("wiring", self.wiring)
+            with DDH5Writer(data, self.data_path, name=name) as writer:
+                writer.backup_file(self.files + [__file__])
+                writer.save_text("wiring.md", self.wiring)
+                writer.save_dict("station_snapshot.json", self.station.snapshot())
+
                 for i in range(len(self.if_freqs)):
                     iteration = 0
+
+                    def measure(if_freq: int, i_amp: float, q_amp: float, theta: float):
+                        nonlocal iteration
+                        self.output_if(if_freq, i_amp, q_amp, theta)
+                        self.spectrum_analyzer.center(self.lo_freq - if_freq * 1e6)
+                        dbm = self.spectrum_analyzer.trace_mean()
+                        writer.add_data(
+                            if_freq=if_freq,
+                            iteration=iteration,
+                            i_amp=i_amp,
+                            q_amp=q_amp,
+                            theta=theta,
+                            image_sideband=dbm,
+                        )
+                        iteration += 1
+                        return 10 ** (dbm / 10)
+
                     x0, x1 = minimize(
                         lambda x: measure(self.if_freqs[i], self.i_amp, *x),
                         [x0, x1],
@@ -212,55 +205,38 @@ class IQCalibrator:
         self.spectrum_analyzer.reference_level(self.reference_level_rf)  # dBm
         self.spectrum_analyzer.center(self.lo_freq)
 
+        data = DataDict(
+            if_freq=dict(unit="MHz"),
+            i_amp=dict(axes=["if_freq"]),
+            q_amp=dict(axes=["if_freq"]),
+            theta=dict(axes=["if_freq"]),
+            lo_leakage=dict(unit="dBm", axis=["if_freq"]),
+            image_sideband=dict(unit="dBm", axes=["if_freq"]),
+            rf_power=dict(unit="dBm", axes=["if_freq"]),
+        )
+        data.validate()
+
         name = f"iq_calibrator rf_power slot{self.awg.slot_number()} ch{self.awg_i.channel} ch{self.awg_q.channel}"
-        measurement = qc.Measurement(self.experiment, self.station, name)
-        if_freq_param = qc.Parameter("if_freq", unit="MHz")
-        i_amp_param = qc.Parameter("i_amp", unit="V")
-        q_amp_param = qc.Parameter("q_amp", unit="V")
-        theta_param = qc.Parameter("theta", unit="rad")
-        rf_power_param = qc.Parameter("rf_power", unit="dBm")
-        measurement.register_parameter(if_freq_param, paramtype="array")
-        measurement.register_parameter(
-            self.spectrum_analyzer.freq_axis, paramtype="array"
-        )
-        measurement.register_parameter(
-            self.spectrum_analyzer.trace,
-            setpoints=(if_freq_param, self.spectrum_analyzer.freq_axis),
-            paramtype="array",
-        )
-        measurement.register_parameter(
-            rf_power_param, setpoints=(if_freq_param,), paramtype="array"
-        )
-        measurement.register_parameter(
-            i_amp_param, setpoints=(if_freq_param,), paramtype="array"
-        )
-        measurement.register_parameter(
-            q_amp_param, setpoints=(if_freq_param,), paramtype="array"
-        )
-        measurement.register_parameter(
-            theta_param, setpoints=(if_freq_param,), paramtype="array"
-        )
 
         try:
-            with measurement.run() as datasaver:
-                datasaver.dataset.add_metadata("wiring", self.wiring)
+            with DDH5Writer(data, self.data_path, name=name) as writer:
+                writer.backup_file(self.files + [__file__])
+                writer.save_text("wiring.md", self.wiring)
+                writer.save_dict("station_snapshot.json", self.station.snapshot())
+
                 for i in range(len(self.if_freqs)):
                     self.output_if(
                         self.if_freqs[i], self.i_amp, self.q_amps[i], self.thetas[i]
                     )
                     trace = self.spectrum_analyzer.trace()
-                    rf_power = trace[500 + self.if_freqs[i]]
-                    datasaver.add_result(
-                        (if_freq_param, self.if_freqs[i]),
-                        (
-                            self.spectrum_analyzer.freq_axis,
-                            self.spectrum_analyzer.freq_axis(),
-                        ),
-                        (self.spectrum_analyzer.trace, trace),
-                        (rf_power_param, rf_power),
-                        (i_amp_param, self.i_amp),
-                        (q_amp_param, self.q_amps[i]),
-                        (theta_param, self.thetas[i]),
+                    writer.add_data(
+                        if_freq=self.if_freqs[i],
+                        i_amp=self.i_amp,
+                        q_amp=self.q_amps[i],
+                        theta=self.thetas[i],
+                        lo_leakage=trace[500],
+                        image_sideband=trace[500 - self.if_freqs[i]],
+                        rf_power=trace[500 + self.if_freqs[i]],
                     )
         finally:
             self.awg.stop_all()

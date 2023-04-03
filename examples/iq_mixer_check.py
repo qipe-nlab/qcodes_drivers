@@ -9,8 +9,9 @@ spectrum_analyzer = E4407B("spectrum_analyzer", "GPIB0::18::INSTR")
 iq_corrector = IQCorrector(
     awg_i2,
     awg_q2,
-    lo_leakage_id=480,
-    rf_power_id=482,
+    data_path,
+    lo_leakage_datetime="2023-03-23T212445",
+    rf_power_datetime="2023-03-23T213321",
     len_kernel=41,
     fit_weight=10,
     plot=True,
@@ -19,7 +20,8 @@ plt.show()
 
 lo2.on()
 iq_corrector.check(
-    experiment,
+    [__file__, setup_file],
+    data_path,
     wiring,
     station,
     awg,

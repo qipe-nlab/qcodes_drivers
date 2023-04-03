@@ -1,12 +1,13 @@
 from qcodes_drivers.E4407B import E4407B
 from qcodes_drivers.iq_calibrator import IQCalibrator
+
 from setup_td import *
 
 spectrum_analyzer = E4407B("spectrum_analyzer", "GPIB0::18::INSTR")
 
-
 iq_calibrator = IQCalibrator(
-    experiment,
+    [__file__, setup_file],
+    data_path,
     wiring,
     station,
     awg,
