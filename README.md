@@ -2,6 +2,8 @@
 
 ## Getting started
 
+- Make sure that your Keysight PXIe AWGs and Digitizers have SD1 2.x firmwares.
+
 - Install [QCoDeS](https://qcodes.github.io/Qcodes/start/index.html).
 
 - Install [plottr](https://github.com/toolsforexperiments/plottr):
