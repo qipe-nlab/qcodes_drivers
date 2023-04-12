@@ -67,5 +67,5 @@
 
 - Chassis number is incorrectly detected as 0. As a result, the chassis does not show up in "PXI/AXIe Chassis" tab of Keysight Connection Expert.
 
-  Solution: instal version 1.0.94.1 of this driver https://www.keysight.com/ca/en/lib/software-detail/driver/m902x-pxie-system-module-driver-2747085.html (thanks to 
+  Solution: install version 1.0.94.1 of this driver https://www.keysight.com/ca/en/lib/software-detail/driver/m902x-pxie-system-module-driver-2747085.html (thanks to 
 Christial Lupien @Institut Quantique and Jean-Olivier Simoneau @Nord Quantique)
