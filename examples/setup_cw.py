@@ -25,6 +25,7 @@ vna.meas_trigger_input_type("level")
 vna.meas_trigger_input_polarity("positive")
 vna.aux1.output_polarity("negative")
 vna.aux1.output_position("after")
+vna.aux1.aux_trigger_mode("point")
 station.add_component(vna)
 
 drive_source = E82x7("drive_source", "TCPIP0::192.168.101.43::inst0::INSTR")
