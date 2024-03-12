@@ -1,7 +1,6 @@
 from typing import Any
 
-from qcodes.instrument_drivers.Keysight.N51x1 import N51x1
-
+from .N51x1 import N51x1
 
 class N5183B(N51x1):
     def __init__(self, name: str, address: str, **kwargs: Any):

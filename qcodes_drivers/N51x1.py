@@ -1,9 +1,8 @@
 from typing import Any, Dict, Optional
 
 from qcodes.instrument import VisaInstrument
-from qcodes import Function, Parameter
 from qcodes.parameters import create_on_off_val_mapping
-from qcodes.validators import Numbers
+from qcodes.validators import Numbers, Ints
 
 
 class N51x1(VisaInstrument):
@@ -36,38 +35,69 @@ class N51x1(VisaInstrument):
 
         max_freq = freq_dict[frequency_option]
 
-        # self.add_parameter('power',
-        #                    label='Power',
-        #                    get_cmd='SOUR:POW?',
-        #                    get_parser=float,
-        #                    set_cmd='SOUR:POW {:.2f}',
-        #                    unit='dBm',
-        #                    vals=Numbers(min_value=min_power,max_value=max_power))
-        self.power = Parameter(
-            name="power",
-            instrument=self,
-            set_cmd='SOUR:POW {:.2f}',
+        self.add_parameter(
+            'power',
+            label='Power',
             get_cmd='SOUR:POW?',
+            get_parser=float,
+            set_cmd='SOUR:POW {:.2f}',
             unit='dBm',
             vals=Numbers(min_value=min_power,max_value=max_power)
         )
 
-        self.frequency = Parameter(
-            name="frequency",
-            instrument=self,
-            set_cmd='SOUR:FREQ {:.2f}',
-            get_cmd='SOUR:FREQ?',
-            get_parser=float,
-            unit='Hz',
-            vals=Numbers(min_value=9e3,max_value=max_freq)
+        self.add_parameter(
+            "frequency_mode",
+            set_cmd="FREQ:MODE {}",
+            get_cmd="FREQ:MODE?",
+            val_mapping={"cw": "CW", "list": "LIST"},
+            docstring="for step sweep, set to 'list'",
         )
+
+        self.add_parameter(
+            'frequency_start',
+            label="Frequency_start",
+            get_cmd="FREQ:STAR?",
+            get_parser=float,
+            set_cmd="FREQ:STAR {:.2f}",
+            unit="Hz",
+            vals=Numbers(min_value=9e3, max_value=max_freq)
+        )
+
+        self.add_parameter(
+            name="sweep_points",
+            get_cmd="SWE:POIN?",
+            get_parser=int,
+            set_cmd="SWE:POIN {}",
+            vals=Ints(2, 65535),
+        )
+
+        self.add_parameter(
+            'frequency_stop',
+            label="Frequency_stop",
+            get_cmd="FREQ:STOP?",
+            get_parser=float,
+            set_cmd="FREQ:STOP {:.2f}",
+            unit="Hz",
+            vals=Numbers(min_value=9e3, max_value=max_freq)
+        )
+
+        self.add_parameter(
+            "frequency",
+            label="Frequency",
+            get_cmd="SOUR:FREQ?",
+            get_parser=float,
+            set_cmd="SOUR:FREQ {:.2f}",
+            unit="Hz",
+            vals=Numbers(min_value=9e3, max_value=max_freq),
+        )
+
         self.add_parameter('phase_offset',
-                           label='Phase Offset',
-                           get_cmd='SOUR:PHAS?',
-                           get_parser=float,
-                           set_cmd='SOUR:PHAS {:.2f}',
-                           unit='rad'
-                           )
+            label='Phase Offset',
+            get_cmd='SOUR:PHAS?',
+            get_parser=float,
+            set_cmd='SOUR:PHAS {:.2f}',
+            unit='rad'
+        )
 
         self.add_parameter(
             "auto_freq_ref",
@@ -76,19 +106,100 @@ class N51x1(VisaInstrument):
             val_mapping=create_on_off_val_mapping(on_val=1, off_val=0),
         )
 
-        # self.add_parameter(
-        #     "rf_output",
-        #     get_cmd="OUTP:STAT?",
-        #     set_cmd="OUTP:STAT {}",
-        #     val_mapping=create_on_off_val_mapping(on_val=1, off_val=0),
-        # )
-        self.output = Parameter(
-            name="output",
-            instrument=self,
+        self.add_parameter(
+            "output",
             get_cmd="OUTP:STAT?",
             set_cmd="OUTP:STAT {}",
-            val_mapping={False: "0", True: "1"},
+            val_mapping=create_on_off_val_mapping(on_val=1, off_val=0),
         )
+
+        self.add_parameter(
+            "external_trigger_source",
+            get_cmd=":LIST:TRIG:EXT:SOUR?",
+            set_cmd=":LIST:TRIG:EXT:SOUR {}",
+            val_mapping={"trigger1": "TRIG", "trigger2": "TRIG2", "pulse": "PULS"}
+        )
+
+        self.add_parameter(
+            name="point_trigger_source",
+            get_cmd="LIST:TRIG:SOUR?",
+            set_cmd="LIST:TRIG:SOUR {}",
+            val_mapping={
+                "bus": "BUS",
+                "immediate": "IMM",
+                "external": "EXT",
+                "key": "KEY",
+            },
+        )
+
+        self.add_parameter(
+            "trigger_input_slope",
+            get_cmd="TRIG:SLOP?",
+            set_cmd="TRIG:SLOP {}",
+            val_mapping={"positive": "POS", "negative": "NEG"},
+        )
+
+        self.add_parameter(
+            "sweep_trigger_source",
+            get_cmd="TRIG:SOUR?",
+            set_cmd="TRIG:SOUR {}",
+            val_mapping={
+                "bus": "BUS",
+                "immediate": "IMM",
+                "external": "EXT",
+                "key": "KEY",
+            },
+        )
+
+        self.add_parameter(
+            "route_trig1",
+            get_cmd="ROUT:TRIG:OUTP?",
+            set_cmd="ROUT:TRIG:OUTP {}",
+            val_mapping={"sweep": "SWE", "settled": "SETT"}
+        )
+
+        self.add_parameter(
+            "route_trig2",
+            get_cmd="ROUT:TRIG2:OUTP?",
+            set_cmd="ROUT:TRIG2:OUTP {}",
+            val_mapping={"sweep": "SWE", "settled": "SETT"}
+        )
+
+        self.add_parameter(
+            name="error",
+            get_cmd=":SYST:ERR?",
+        )
+
+        self.add_parameter(
+            name="sweep_done",
+            get_cmd="STAT:OPER:COND?",
+            get_parser=lambda x: int(x) & 8 != 0,
+        )
+        
+        self.add_function(
+            name="arm_sweep",
+            call_cmd=":INIT",
+        )
+
+        self.add_function(
+            name="trigger",
+            call_cmd=":TRIG",
+        )
+
+        if "UNW" in self._options:
+            self.add_parameter(
+                "pulse_modulation",
+                get_cmd="PULM:STAT?",
+                set_cmd="PULM:STAT {}",
+                val_mapping=create_on_off_val_mapping(on_val=1, off_val=0),
+            )
+
+            self.add_parameter(
+                "pulse_modulation_source",
+                get_cmd="PULM:SOUR?",
+                set_cmd="PULM:SOUR {}",
+                val_mapping={"internal": "INT", "external": "EXT"},
+            )
 
         self.connect_message()
 
